@@ -35,8 +35,8 @@ import { attachDrag } from "./drag";
 import { NewTask } from "./newtask";
 import { SIDE_VIEW, SideView } from "./side";
 import { DEFAULTS, SavedView, Settings, SettingsTab } from "./settings";
-import { remove, replaceNote, setDates, setStatus, shift } from "./edit";
-import { parseQuery } from "./query";
+import { iso, remove, replaceNote, setDates, setStatus, shift } from "./edit";
+import { day, parseQuery } from "./query";
 import { collect, groupTasks } from "./tasks";
 import type { GroupBy, Query, Task, View } from "./types";
 
@@ -471,6 +471,8 @@ class SpanView extends ItemView {
 
 	/** The saved view this pane is showing, if any. */
 	private appliedView: string | null = null;
+	private tray!: HTMLElement;
+	private trayShut = false;
 	private groupBtn?: HTMLElement;
 	private viewsBtn?: HTMLElement;
 
@@ -582,7 +584,12 @@ class SpanView extends ItemView {
 		this.iconButton(right, "refresh-cw", "Refresh", () => void this.redraw());
 
 		const split = root.createDiv({ cls: "ts-split" });
-		this.body = split.createDiv({ cls: "ts-view-body" });
+		// The chart and the tray are one column; the sidebar is the other. The
+		// tray is not a group — it sits outside the grouping entirely, because
+		// "has no dates" is not a thing a plan is organised by.
+		const main = split.createDiv({ cls: "ts-main" });
+		this.body = main.createDiv({ cls: "ts-view-body" });
+		this.tray = main.createDiv({ cls: "ts-tray is-hidden" });
 		this.swipeable(this.body);
 		this.handle = split.createDiv({ cls: "ts-handle is-hidden" });
 		this.side = split.createDiv({ cls: "ts-side is-hidden" });
@@ -598,6 +605,75 @@ class SpanView extends ItemView {
 				void this.redraw();
 			}) as never));
 		await this.redraw();
+	}
+
+	/**
+	 * The unscheduled tray.
+	 *
+	 * Work that has been written down but not placed. It cannot appear on the
+	 * chart — there is nowhere to put it — so it waits underneath, and leaves
+	 * the moment it is given dates. That is the whole interaction: the tray
+	 * empties as the plan fills.
+	 *
+	 * Deliberately not a group. Grouping answers "whose work is this"; whether
+	 * something has dates is a different question, and folding it into the same
+	 * control would add a layer to every band for a fact that is binary.
+	 */
+	private async drawTray() {
+		this.tray.empty();
+
+		// Only where a timeline is being read. In the calendars a date is the
+		// whole premise, so something without one has nothing to say there.
+		if (!GROUPABLE.includes(this.q.view)) {
+			this.tray.addClass("is-hidden");
+			return;
+		}
+
+		const waiting = await collect(this.app, this.q, "unscheduled");
+		if (!waiting.length) {
+			this.tray.addClass("is-hidden");
+			return;
+		}
+		this.tray.removeClass("is-hidden");
+		this.tray.toggleClass("is-shut", this.trayShut);
+
+		const head = this.tray.createDiv({ cls: "ts-tray-head" });
+		const twist = head.createDiv({ cls: "ts-twist" });
+		setIcon(twist, this.trayShut ? "chevron-right" : "chevron-down");
+		head.createSpan({ cls: "ts-tray-title", text: "Unscheduled" });
+		head.createSpan({ cls: "ts-tray-count", text: String(waiting.length) });
+		head.createSpan({
+			cls: "ts-tray-hint",
+			text: "Give one dates and it moves up into the plan",
+		});
+		head.onclick = () => { this.trayShut = !this.trayShut; void this.drawTray(); };
+
+		const list = this.tray.createDiv({ cls: "ts-tray-list" });
+		for (const task of waiting) {
+			const row = list.createDiv({ cls: `ts-tray-row is-${task.status}` });
+
+			const box = row.createDiv({ cls: "ts-box" });
+			box.setAttr("aria-label", task.status === "done" ? "Reopen" : "Mark done");
+			box.onclick = async (ev) => { ev.stopPropagation(); await this.plugin.toggle(task); };
+
+			row.createSpan({ cls: "ts-name", text: task.text });
+			row.createSpan({ cls: "ts-src", text: `${task.file}:${task.line + 1}` });
+
+			const set = row.createDiv({ cls: "ts-tray-set" });
+			setIcon(set, "calendar-plus");
+			set.setAttr("aria-label", "Give this dates");
+			set.onclick = (ev) => {
+				ev.stopPropagation();
+				new ScheduleTask(this.app, task, async (start: number, end: number) => {
+					// Through the same guarded door as a drag: date tokens only,
+					// signature checked, one process call.
+					if (await setDates(this.app, task, start, end)) await this.redraw();
+				}).open();
+			};
+
+			row.onclick = (ev) => void this.plugin.reveal(task, ev);
+			row.oncontextmenu = (ev) => this.plugin.menu(task, ev);
+		}
 	}
 
 	/** Light one tab. By name, not by index: the tabs sit in two strips now. */
@@ -899,6 +975,7 @@ class SpanView extends ItemView {
 			this.q.group = next;
 			void this.redraw();
 		});
+		await this.drawTray();
 		this.tagsSeen = [...new Set(
 			this.body.findAll(".ts-tag:not(.is-more)").map((e) => `#${e.textContent ?? ""}`),
 		)].sort();
@@ -1153,6 +1230,58 @@ class SpanView extends ItemView {
  * a view you have just adjusted is the common case, and a dialog that says no
  * would send people off to delete the old one first.
  */
+/**
+ * Give an unscheduled task its dates.
+ *
+ * Two fields and nothing else. A finish before a start is corrected rather
+ * than refused: the person has said what they mean, and an error message
+ * asking them to say it again in the other order helps nobody.
+ */
+class ScheduleTask extends Modal {
+	constructor(
+		app: App,
+		private task: Task,
+		private done: (start: number, end: number) => void | Promise<void>,
+	) { super(app); }
+
+	onOpen() {
+		const { contentEl } = this;
+		contentEl.addClass("task-span");
+		contentEl.createEl("h3", { text: "Give this dates" });
+		contentEl.createDiv({ cls: "ts-note", text: this.task.text });
+
+		const today = new Date().setHours(0, 0, 0, 0);
+		let start = iso(today);
+		let end = iso(today + 6 * 86_400_000);
+
+		new Setting(contentEl).setName("Starts").addText((t) => {
+			t.inputEl.type = "date";
+			t.setValue(start).onChange((v) => { start = v; });
+			window.setTimeout(() => t.inputEl.focus(), 0);
+		});
+		new Setting(contentEl).setName("Due").addText((t) => {
+			t.inputEl.type = "date";
+			t.setValue(end).onChange((v) => { end = v; });
+		});
+
+		const save = () => {
+			const a = day(start);
+			const b = day(end);
+			if (a === null && b === null) { new Notice("Task Span: give it at least one date."); return; }
+			const from = a ?? (b as number);
+			const to = b ?? (a as number);
+			void this.done(Math.min(from, to), Math.max(from, to));
+			this.close();
+		};
+
+		new Setting(contentEl)
+			.addButton((b) => b.setButtonText("Cancel").onClick(() => this.close()))
+			.addButton((b) => b.setButtonText("Schedule").setCta().onClick(save));
+	}
+
+	onClose() { this.contentEl.empty(); }
+}
+
 class NameView extends Modal {
 	constructor(
 		app: App,

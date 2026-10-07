@@ -33,6 +33,14 @@ export interface Task {
 	end: number;
 	/** True when the task has one date rather than two: drawn as a marker. */
 	moment: boolean;
+	/**
+	 * No start and no finish.
+	 *
+	 * It cannot be drawn on a timeline — there is nowhere to put it, and
+	 * inventing a position would be a lie. It is still real work, so it is
+	 * carried here rather than dropped, and shown in a tray beneath the chart.
+	 */
+	unscheduled?: boolean;
 	/** Every date the line carried, for filtering by a chosen field. */
 	dates: Partial<Record<DateField, number>>;
 	tags: string[];

@@ -1554,3 +1554,94 @@
 /* The status accent carries real weight on the left edge, as it does in the
    tool this was measured against. */
 .task-span .ts-list-row { border-left-width: 4px; }
+
+
+/* ══ the unscheduled tray ══════════════════════════════════════════════════
+   A second horizontal section under the chart, not another level of grouping.
+   Grouping answers "whose work is this"; having dates or not is a different
+   question, and binary — folding it into the same control would add a layer
+   to every band to express one bit.
+
+   It is capped at a third of the height and scrolls: the plan is the subject
+   and the backlog is the waiting room, so the backlog never takes the room. */
+
+.task-span .ts-main {
+	flex: 1 1 auto;
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+	min-height: 0;
+}
+
+.task-span .ts-tray {
+	flex: 0 0 auto;
+	max-height: 34%;
+	display: flex;
+	flex-direction: column;
+	border-top: 1px solid var(--ts-rule);
+	background: var(--ts-wash);
+}
+.task-span .ts-tray.is-hidden { display: none; }
+.task-span .ts-tray.is-shut { max-height: none; }
+.task-span .ts-tray.is-shut .ts-tray-list { display: none; }
+
+.task-span .ts-tray-head {
+	flex: none;
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 7px 12px;
+	cursor: pointer;
+	user-select: none;
+}
+.task-span .ts-tray-head:hover { background: var(--ts-hover); }
+.task-span .ts-tray-head .ts-twist { display: flex; color: var(--ts-faint); }
+.task-span .ts-tray-head .ts-twist svg { width: 13px; height: 13px; }
+
+.task-span .ts-tray-title {
+	font-size: 11px; font-weight: 700;
+	text-transform: uppercase; letter-spacing: .06em;
+	color: var(--ts-soft);
+}
+.task-span .ts-tray-count {
+	font-size: 11px; font-weight: 600;
+	padding: 1px 7px; border-radius: 999px;
+	background: var(--ts-panel); color: var(--ts-soft);
+	font-variant-numeric: tabular-nums;
+}
+/* Said once, in the header, rather than as a button on all ninety-seven rows. */
+.task-span .ts-tray-hint {
+	font-size: 11px; color: var(--ts-faint);
+	margin-left: auto;
+	overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+@media (max-width: 700px) { .task-span .ts-tray-hint { display: none; } }
+
+.task-span .ts-tray-list { overflow: auto; padding: 0 8px 8px; }
+
+.task-span .ts-tray-row {
+	display: flex; align-items: center; gap: 10px;
+	padding: 6px 10px; border-radius: 7px;
+	background: var(--ts-paper);
+	border: 1px solid var(--ts-rule);
+	border-left: 4px solid var(--ts-faint);
+	margin-bottom: 4px;
+	cursor: pointer;
+}
+.task-span .ts-tray-row:hover { border-color: var(--ts-accent); }
+.task-span .ts-tray-row .ts-name {
+	flex: 1 1 auto; font-size: 13px; color: var(--ts-ink);
+	overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.task-span .ts-tray-row .ts-src { flex: none; }
+.task-span .ts-tray-row.is-done { opacity: .6; }
+
+/* The one action a tray row has. Visible always, not on hover: a control that
+   appears only when the pointer is over it is a control nobody finds. */
+.task-span .ts-tray-set {
+	flex: none; display: flex; align-items: center; justify-content: center;
+	width: 24px; height: 24px; border-radius: 6px;
+	color: var(--ts-soft);
+}
+.task-span .ts-tray-set:hover { background: var(--ts-hover); color: var(--ts-accent); }
+.task-span .ts-tray-set svg { width: 14px; height: 14px; }

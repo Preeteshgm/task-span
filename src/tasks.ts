@@ -138,10 +138,13 @@ function parseFile(path: string, text: string, props: Record<string, unknown>): 
 
 		const begins = dates.start ?? dates.scheduled ?? null;
 		const ends = dates.due ?? dates.done ?? null;
-		if (begins === null && ends === null) continue;   // nowhere to put it
+		// Carried, not dropped. A task with no dates cannot be drawn on a
+		// timeline, but it is still work somebody wrote down — and a planner
+		// that hides the unplanned is a planner that cannot be planned with.
+		const unscheduled = begins === null && ends === null;
 
-		const start = begins ?? (ends as number);
-		const end = ends ?? (begins as number);
+		const start = begins ?? ends ?? 0;
+		const end = ends ?? begins ?? 0;
 
 		out.push({
 			path, line: i, file, folder, heading,
@@ -151,6 +154,7 @@ function parseFile(path: string, text: string, props: Record<string, unknown>): 
 			start: Math.min(start, end),
 			end: Math.max(start, end),
 			moment: begins === null || ends === null || begins === ends,
+			unscheduled,
 			dates: {
 				start: dates.start, scheduled: dates.scheduled,
 				due: dates.due, done: dates.done,
@@ -162,7 +166,16 @@ function parseFile(path: string, text: string, props: Record<string, unknown>): 
 	return out;
 }
 
-export async function collect(app: App, q: Query): Promise<Task[]> {
+/**
+ * Tasks matching the query.
+ *
+ * `mode` picks which half: the scheduled ones a chart can draw, or the
+ * unscheduled ones it cannot. Two calls rather than one list with a flag,
+ * because every caller wants one or the other and never both mixed.
+ */
+export async function collect(
+	app: App, q: Query, mode: "scheduled" | "unscheduled" = "scheduled",
+): Promise<Task[]> {
 	const files = filesFor(app, q);
 	const all: Task[] = [];
 	for (const f of files) {
@@ -174,7 +187,7 @@ export async function collect(app: App, q: Query): Promise<Task[]> {
 		all.push(...parseFile(f.path, await app.vault.cachedRead(f), props));
 	}
 
-	let tasks = all;
+	let tasks = all.filter((t) => !!t.unscheduled === (mode === "unscheduled"));
 	if (q.not.length) {
 		tasks = tasks.filter((t) => !q.not.some((n) => t.path.toLowerCase().startsWith(n.toLowerCase())));
 	}
@@ -184,14 +197,14 @@ export async function collect(app: App, q: Query): Promise<Task[]> {
 	if (q.status.length) {
 		tasks = tasks.filter((t) => q.status.includes(t.status));
 	}
-	if (q.late) {
+	if (q.late && mode === "scheduled") {
 		const now = new Date().setHours(0, 0, 0, 0);
 		tasks = tasks.filter((t) => t.status === "open" && t.end < now);
 	}
 	// The window is measured against one chosen field, which is why the field
 	// is asked for: "due this week" and "starting this week" are different
 	// questions and a list that answers only one is half a list.
-	if (q.window && q.window !== "all") {
+	if (q.window && q.window !== "all" && mode === "scheduled") {
 		const field: DateField = q.dateField ?? "due";
 		const at = new Date(q.cursor);
 		at.setHours(0, 0, 0, 0);
