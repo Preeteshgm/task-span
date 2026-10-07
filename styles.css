@@ -2095,3 +2095,30 @@ body.ts-dragging .ts-tray-row:hover { border-color: var(--ts-rule); }
 /* A band is a row like any other here: same height rules, no extra spacing. */
 .task-span .ts-gantt .ts-list-band,
 .task-span .ts-gantt .ts-row.is-band { margin: 0; }
+
+
+/* ══ done, without making the column see-through ═══════════════════════════
+   `opacity` on the name cell dims everything in it — including its own
+   background. The cell is sticky now, so it sits over the timeline rather
+   than beside it, and a translucent background let the bars show straight
+   through the task names.
+
+   Dim the contents, never the container: the cell keeps its paint, and the
+   number, the tick and the name each carry the state themselves. */
+
+.task-span .ts-gantt .ts-row.is-done .ts-cell-name,
+.task-span .ts-gantt .ts-row.is-cancelled .ts-cell-name { opacity: 1; }
+
+.task-span .ts-gantt .ts-row.is-done .ts-name,
+.task-span .ts-gantt .ts-row.is-done .ts-num { color: var(--ts-faint); }
+
+.task-span .ts-gantt .ts-row.is-cancelled .ts-name,
+.task-span .ts-gantt .ts-row.is-cancelled .ts-num {
+	color: var(--ts-faint);
+	text-decoration: line-through;
+}
+
+/* The bar still fades — it is over the chart, where there is nothing behind
+   it to leak through. */
+.task-span .ts-gantt .ts-bar.is-done { opacity: .6; }
+.task-span .ts-gantt .ts-bar.is-cancelled { opacity: .45; }
