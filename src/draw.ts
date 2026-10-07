@@ -177,9 +177,11 @@ export function gantt(host: HTMLElement, groups: Group[], q: Query): Drawn {
 		// as one, but each has its own rail, and a single line would sit behind
 		// only the first.
 		if (today() >= from && today() < to) {
+			// A line, not a column. A tinted column the width of a day washes over
+			// every bar that crosses it and competes with the bars for attention;
+			// a line says where today is and then gets out of the way.
 			const line = div(rail, "ts-rail-today");
 			line.style.left = `${((today() - from) / DAY) * colW}px`;
-			line.style.width = `${colW}px`;
 		}
 		return rail;
 	};

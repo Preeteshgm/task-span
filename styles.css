@@ -1812,3 +1812,74 @@ body.ts-dragging .ts-tray-row:hover { border-color: var(--ts-rule); }
 /* The name starts at the left edge of its column. */
 .task-span .ts-cell-name .ts-name { padding-left: 10px; }
 .task-span .ts-head-task { padding-left: 10px; }
+
+
+/* ══ gantt: the chart area is left alone ═══════════════════════════════════
+   Measured against the tool this replaces. Two things make theirs readable
+   and ours busy: the chart is a quiet grid that nothing else paints on, and
+   today is a hairline rather than a stripe. */
+
+/* Today — a dotted hairline, behind the bars. */
+.task-span .ts-rail-today {
+	width: 0;
+	background: none;
+	border-left: 1px dashed var(--ts-accent);
+	opacity: .75;
+	z-index: 1;
+}
+
+/* The date in the header is marked by its colour, not by a block of fill. */
+.task-span .ts-head-track .ts-col.is-today,
+.task-span .ts-col.is-today {
+	background: none;
+	border-left: 1px dashed var(--ts-accent);
+	color: var(--ts-accent);
+	font-weight: 700;
+}
+
+/* A band belongs to the list of names, not to the timeline. Letting its fill
+   run the whole width draws a grey bar straight through the chart, which is
+   the one area that should hold nothing but bars and grid. */
+.task-span .ts-row.is-band .ts-cell-track,
+.task-span .ts-row.is-band .ts-cell-track .ts-scroll {
+	background: none;
+}
+.task-span .ts-row.is-band.is-depth-0 { background: none; }
+.task-span .ts-row.is-band.is-depth-0 .ts-cell-name { background: var(--ts-wash); }
+
+/* A quieter grid. The day lines are a hint; the week lines carry the reading. */
+.task-span .ts-gantt .ts-cell-track .ts-scroll {
+	background-image:
+		repeating-linear-gradient(to right,
+			color-mix(in srgb, var(--ts-rule) 85%, transparent) 0 1px,
+			transparent 1px var(--ts-week-w)),
+		repeating-linear-gradient(to right,
+			color-mix(in srgb, var(--ts-rule) 30%, transparent) 0 1px,
+			transparent 1px var(--ts-col-w));
+}
+
+/* Row separators in the chart match the ones beside the names, so a row reads
+   straight across the divider instead of stopping at it. */
+.task-span .ts-gantt .ts-row {
+	border-bottom: 1px solid color-mix(in srgb, var(--ts-rule) 55%, transparent);
+}
+
+/* The name column is the fixed part: it holds still while the chart scrolls,
+   so the divider between them is the one firm line on the screen. */
+.task-span .ts-gantt .ts-cell-name,
+.task-span .ts-gantt .ts-head-name {
+	border-right: 1px solid var(--ts-rule);
+	background: var(--ts-paper);
+}
+.task-span .ts-gantt .ts-row.is-band.is-depth-0 .ts-cell-name { background: var(--ts-wash); }
+
+/* Bars sit above the grid and the today line, and carry their own edge. */
+.task-span .ts-gantt .ts-bar { z-index: 2; border-radius: 5px; }
+
+
+/* A band is a heading, not a row of work: it needs less height than the rows
+   it introduces, and a sub-band less again. */
+.task-span .ts-gantt .ts-row.is-band.is-depth-0 { height: 24px; }
+.task-span .ts-gantt .ts-row.is-band.is-depth-1,
+.task-span .ts-gantt .ts-row.is-band.is-depth-2 { height: 22px; }
+.task-span .ts-gantt .ts-row.is-band .ts-band-count { font-size: 10px; }

@@ -100,7 +100,7 @@ export const DEFAULTS: Settings = {
 	monthLanes: 3,
 	yearDots: 3,
 	ganttColumn: 15,
-	rowHeight: 34,
+	rowHeight: 28,
 	ganttStart: "start",
 	ganttEnd: "due",
 	newTaskNote: "",
@@ -319,8 +319,8 @@ export class SettingsTab extends PluginSettingTab {
 			new Setting(c).setName("Density").setHeading();
 
 			new Setting(c).setName("Row height")
-				.setDesc("Pixels. Below about 26 a bar cannot hold a label.")
-				.addSlider((x) => x.setLimits(24, 56, 2).setValue(s.rowHeight).setDynamicTooltip()
+				.setDesc("Pixels. Below about 22 a bar cannot hold a label.")
+				.addSlider((x) => x.setLimits(22, 56, 2).setValue(s.rowHeight).setDynamicTooltip()
 					.onChange((v) => { s.rowHeight = v; save(); }));
 
 			new Setting(c).setName("Gantt day width")
