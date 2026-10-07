@@ -2010,3 +2010,61 @@ body.ts-dragging .ts-tray-row:hover { border-color: var(--ts-rule); }
 /* A band's track is left clear so the grid reads straight through it — the
    heading is carried by the name column, which is where headings belong. */
 .task-span .ts-gantt .ts-row.is-band .ts-cell-track { background: none; }
+
+
+/* ══ one scroller ══════════════════════════════════════════════════════════
+   The chart is a single scrolling box, and the name column is sticky inside
+   it. Before, every row scrolled itself and script copied the offset to the
+   rest; a trackpad gives fractional offsets, so rows settled a pixel or two
+   apart and every vertical line stepped sideways between rows. One offset for
+   the whole grid is the only thing that makes a line straight. */
+
+.task-span .ts-gantt {
+	overflow: auto;
+	max-height: 70vh;
+}
+
+/* Rows are as wide as the timeline, so the box has something to scroll. */
+.task-span .ts-gantt .ts-head,
+.task-span .ts-gantt .ts-row {
+	width: max-content;
+	min-width: 100%;
+}
+
+/* The header holds still vertically, the names hold still horizontally, and
+   the corner between them has to beat both. */
+.task-span .ts-gantt .ts-head { position: sticky; top: 0; z-index: 5; }
+.task-span .ts-gantt .ts-head-name { position: sticky; left: 0; z-index: 6; }
+.task-span .ts-gantt .ts-cell-name { position: sticky; left: 0; z-index: 4; }
+
+/* The tracks no longer scroll; they are simply as wide as the timeline. */
+.task-span .ts-gantt .ts-head-track,
+.task-span .ts-gantt .ts-cell-track {
+	overflow: visible;
+	flex: none;
+}
+
+.task-span .ts-gantt .ts-body { overflow: visible; max-height: none; }
+
+/* The divider rides with the sticky column instead of being painted at a
+   fixed offset, which would have scrolled away from it. */
+.task-span .ts-gantt::after { content: none; }
+.task-span .ts-gantt .ts-cell-name,
+.task-span .ts-gantt .ts-head-name { border-right: 1px solid var(--ts-rule); }
+
+/* A sticky cell sits over the timeline, so it cannot be transparent. */
+.task-span .ts-gantt .ts-cell-name { background: var(--ts-paper); }
+.task-span .ts-gantt .ts-row.is-alt .ts-cell-name {
+	background: color-mix(in srgb, var(--ts-tint) 4%, var(--ts-paper));
+}
+.task-span .ts-gantt .ts-head-name { background: var(--ts-panel); }
+.task-span .ts-gantt .ts-row.is-band.is-depth-0 .ts-cell-name {
+	background: color-mix(in srgb, var(--ts-tint) 16%, var(--ts-paper));
+}
+.task-span .ts-gantt .ts-row.is-band.is-depth-1 .ts-cell-name,
+.task-span .ts-gantt .ts-row.is-band.is-depth-2 .ts-cell-name {
+	background: color-mix(in srgb, var(--ts-tint) 8%, var(--ts-paper));
+}
+.task-span .ts-gantt .ts-row:hover .ts-cell-name {
+	background: color-mix(in srgb, var(--ts-tint) 9%, var(--ts-paper));
+}

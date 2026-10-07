@@ -266,20 +266,18 @@ ${short(task.start)} → ${short(task.end)}`;
 
 	for (const group of groups) renderGroup(bodyEl, group, 0);
 
-	// One scrollbar, not one per row: every track scrolls with the header.
-	const tracks = Array.from(root.querySelectorAll<HTMLElement>(".ts-cell-track, .ts-head-track"));
-	let syncing = false;
-	for (const t of tracks) {
-		t.addEventListener("scroll", () => {
-			if (syncing) return;
-			syncing = true;
-			for (const other of tracks) if (other !== t) other.scrollLeft = t.scrollLeft;
-			syncing = false;
-		});
-	}
-	// Open on today rather than at the beginning of time.
+	// Literally one scroller, rather than one per row kept in step by script.
+	//
+	// Every row used to scroll itself, and a listener copied `scrollLeft` to all
+	// the others. A trackpad produces fractional scroll positions, so rows
+	// settled a pixel or two apart and every vertical line stepped sideways
+	// between one row and the next. Nothing drawn can survive that.
+	//
+	// The chart is now a single scrolling box. The name column is sticky at its
+	// left edge, so it holds still while the timeline moves, and there is one
+	// scroll offset for the whole grid — which is why the lines are straight.
 	const start = Math.max(0, ((today() - from) / DAY) * colW - 120);
-	requestAnimationFrame(() => { for (const t of tracks) t.scrollLeft = start; });
+	requestAnimationFrame(() => { root.scrollLeft = start; });
 
 	return { root, bars, geo: { from, colW } };
 }
