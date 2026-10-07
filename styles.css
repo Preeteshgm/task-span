@@ -1762,12 +1762,13 @@ body.ts-dragging .ts-tray-row:hover { border-color: var(--ts-rule); }
 	border-top: 0;
 }
 
-/* The line down the left is what makes a run of rows read as one family —
-   it is the only thing on screen that spans parent and children together. */
-.task-span .ts-group.is-nested {
-	border-left: 1px solid var(--ts-rule);
-	margin-left: 1px;
-}
+/* Nothing here. A border plus a margin on the block that holds the rows is
+   two pixels of horizontal offset per level of nesting, applied to the rows'
+   own container — so every row inside a nested group sat two pixels right of
+   the rows outside it, and the grid and the today line went with them. That
+   was the step in the vertical lines, and it grew with depth.
+   The hierarchy is carried by the indent and the band shades, which cost the
+   layout nothing. Anything decorative added here must not take width. */
 
 .task-span .ts-band-name {
 	overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;
