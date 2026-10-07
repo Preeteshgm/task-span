@@ -45,6 +45,9 @@ export interface Drawn {
 /** Is anything banded? `["none"]` is the flat case. */
 export const grouped = (q: Query) => q.group.some((g) => g !== "none");
 
+/** One level of nesting, in pixels. Wide enough to be seen at a glance. */
+const STEP = 22;
+
 const midnight = (t: number) => new Date(t).setHours(0, 0, 0, 0);
 const today = () => midnight(Date.now());
 
@@ -190,7 +193,7 @@ export function gantt(host: HTMLElement, groups: Group[], q: Query): Drawn {
 		// The indent belongs to the label, never to the cell. Indenting the cell
 		// moves the serial number with it, and the number then no longer lines up
 		// with the `#` in the header — the column stops being a column.
-		if (depth) label.style.paddingLeft = `${12 + depth * 14}px`;
+		if (depth) label.style.paddingLeft = `${12 + depth * STEP}px`;
 		label.title = `${task.text}
 ${task.file}`;
 
@@ -222,7 +225,9 @@ ${short(task.start)} → ${short(task.end)}`;
 		if (group.label) {
 			const band = div(block, `ts-row is-band is-depth-${Math.min(depth, 2)}`);
 			const head = div(band, "ts-cell-name");
-			if (depth) head.style.paddingLeft = `${depth * 14}px`;
+			// From the same base as a task row, or a child band sits two pixels
+			// from its parent and the nesting reads as a list of equals.
+			head.style.paddingLeft = `${12 + depth * STEP}px`;
 			const twist = div(head, "ts-twist", "▾");
 			const nameEl = div(head, "ts-band-name", group.label);
 			// The whole key on hover: the label is the readable form, not the fact.
@@ -347,7 +352,7 @@ export function list(host: HTMLElement, groups: Group[], q: Query): Drawn {
 				.setAttr("aria-label", `${task.path}, line ${task.line + 1}`);
 		}
 		bars.push({ task, node: row });
-		if (depth) row.style.paddingLeft = `${12 + depth * 14}px`;
+		if (depth) row.style.paddingLeft = `${12 + depth * STEP}px`;
 	};
 
 	/** A band and everything beneath it — the same tree the Gantt draws. */
@@ -355,7 +360,7 @@ export function list(host: HTMLElement, groups: Group[], q: Query): Drawn {
 		const block = div(host, `ts-group${depth ? " is-nested" : ""}`);
 		if (group.label) {
 			const band = div(block, `ts-list-band is-depth-${Math.min(depth, 2)}`);
-			if (depth) band.style.paddingLeft = `${12 + depth * 14}px`;
+			band.style.paddingLeft = `${12 + depth * STEP}px`;
 			const twist = div(band, "ts-twist", "▾");
 			const nameEl = div(band, "ts-band-name", group.label);
 			nameEl.title = group.name;

@@ -1717,3 +1717,62 @@ body.ts-dragging .ts-tray-row:hover { border-color: var(--ts-rule); }
 	color: var(--text-muted);
 	font-variant-numeric: tabular-nums;
 }
+
+
+/* ══ nested bands ══════════════════════════════════════════════════════════
+   Restored, and stronger than before. These rules were lost when two earlier
+   blocks were cut out around them, and without them every band looked the
+   same: a parent and its children read as a list of equals.
+
+   A level is told three ways at once — indent, weight and ground — because
+   any one of them alone is missable in a dense chart. */
+
+/* The outer band: the loudest thing in the body. */
+.task-span .ts-row.is-band.is-depth-0 .ts-band-name,
+.task-span .ts-list-band.is-depth-0 .ts-band-name {
+	text-transform: uppercase;
+	letter-spacing: .06em;
+	font-size: 11px;
+	font-weight: 700;
+	color: var(--ts-ink);
+}
+.task-span .ts-row.is-band.is-depth-0,
+.task-span .ts-list-band.is-depth-0 {
+	background: var(--ts-wash);
+	border-top: 1px solid var(--ts-rule);
+}
+
+/* A child band is a heading inside a heading, so it is quieter than its
+   parent rather than a second copy of it: sentence case, lighter, no rule. */
+.task-span .ts-row.is-band.is-depth-1 .ts-band-name,
+.task-span .ts-row.is-band.is-depth-2 .ts-band-name,
+.task-span .ts-list-band.is-depth-1 .ts-band-name,
+.task-span .ts-list-band.is-depth-2 .ts-band-name {
+	text-transform: none;
+	letter-spacing: 0;
+	font-size: 12px;
+	font-weight: 600;
+	color: var(--ts-soft);
+}
+.task-span .ts-row.is-band.is-depth-1,
+.task-span .ts-row.is-band.is-depth-2,
+.task-span .ts-list-band.is-depth-1,
+.task-span .ts-list-band.is-depth-2 {
+	background: transparent;
+	border-top: 0;
+}
+
+/* The line down the left is what makes a run of rows read as one family —
+   it is the only thing on screen that spans parent and children together. */
+.task-span .ts-group.is-nested {
+	border-left: 1px solid var(--ts-rule);
+	margin-left: 1px;
+}
+
+.task-span .ts-band-name {
+	overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;
+}
+
+.task-span .ts-group.is-shut > .ts-group,
+.task-span .ts-group.is-shut > .ts-row:not(.is-band),
+.task-span .ts-group.is-shut > .ts-list-row { display: none; }
