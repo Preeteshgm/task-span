@@ -193,7 +193,10 @@ export function gantt(host: HTMLElement, groups: Group[], q: Query): Drawn {
 
 	const taskRow = (block: HTMLElement, task: Task, depth: number) => {
 		n++;
-		const row = div(block, `ts-row ${stateOf(task)}`);
+		// Striped from the running count, not from nth-child: rows sit inside
+		// group blocks, so nth-child restarts at every band and the stripe would
+		// break exactly where the chart is already busiest.
+		const row = div(block, `ts-row ${stateOf(task)}${n % 2 === 0 ? " is-alt" : ""}`);
 		const name = div(row, "ts-cell-name");
 		div(name, "ts-num", String(n));
 		// No checkbox here, deliberately. A Gantt is read to answer "when does
@@ -311,7 +314,7 @@ export function list(host: HTMLElement, groups: Group[], q: Query): Drawn {
 	const taskRow = (block: HTMLElement, task: Task, depth: number) => {
 		n++;
 		const late = task.status === "open" && task.end < now;
-		const row = div(block, `ts-list-row ${stateOf(task)}${depth ? " is-child" : ""}`);
+		const row = div(block, `ts-list-row ${stateOf(task)}${depth ? " is-child" : ""}${n % 2 === 0 ? " is-alt" : ""}`);
 		// The accent on the left is the status, and the status is the only
 		// thing it is. Saying so on the row means the legend is a reminder
 		// rather than the only way to know.

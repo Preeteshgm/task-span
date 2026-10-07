@@ -1911,3 +1911,60 @@ body.ts-dragging .ts-tray-row:hover { border-color: var(--ts-rule); }
 			color-mix(in srgb, var(--ts-rule) 22%, transparent) 0 1px,
 			transparent 1px var(--ts-col-w));
 }
+
+
+/* ══ gantt: stripes, shades and one divider ════════════════════════════════
+   Three things that make a wide chart readable, all of them about keeping the
+   eye on one row while it travels a long way to the right. */
+
+/* One tint for the whole chart, so every shade below is the same colour at a
+   different strength rather than four unrelated greys. */
+.task-span .ts-gantt { --ts-tint: var(--ts-accent, var(--interactive-accent)); }
+
+/* Zebra. Barely there on purpose: it has to be visible across 400px of empty
+   track and invisible under a bar. */
+.task-span .ts-gantt .ts-row.is-alt .ts-cell-track,
+.task-span .ts-gantt .ts-row.is-alt .ts-cell-name {
+	background: color-mix(in srgb, var(--ts-tint) 4%, var(--ts-paper));
+}
+.task-span .ts-list .ts-list-row.is-alt {
+	background: color-mix(in srgb, var(--ts-tint) 3.5%, var(--ts-paper));
+}
+
+/* Hover still wins, or the stripe becomes the only thing the row says. */
+.task-span .ts-gantt .ts-row:hover .ts-cell-name,
+.task-span .ts-gantt .ts-row:hover .ts-cell-track {
+	background: color-mix(in srgb, var(--ts-tint) 9%, var(--ts-paper));
+}
+
+/* Bands: two strengths of one colour, so a parent and its child read as one
+   family at two levels rather than as a heading and a gap. */
+.task-span .ts-gantt .ts-row.is-band.is-depth-0 .ts-cell-name,
+.task-span .ts-list .ts-list-band.is-depth-0 {
+	background: color-mix(in srgb, var(--ts-tint) 16%, var(--ts-paper));
+}
+.task-span .ts-gantt .ts-row.is-band.is-depth-1 .ts-cell-name,
+.task-span .ts-gantt .ts-row.is-band.is-depth-2 .ts-cell-name,
+.task-span .ts-list .ts-list-band.is-depth-1,
+.task-span .ts-list .ts-list-band.is-depth-2 {
+	background: color-mix(in srgb, var(--ts-tint) 8%, var(--ts-paper));
+}
+/* The band's own track stays empty — the chart carries bars and grid only. */
+.task-span .ts-gantt .ts-row.is-band .ts-cell-track { background: none; }
+
+/* One divider, drawn once, instead of a border on every cell that leaves a
+   gap wherever a cell is missing or a background paints over it. */
+.task-span .ts-gantt { position: relative; }
+.task-span .ts-gantt::after {
+	content: "";
+	position: absolute;
+	left: var(--ts-name-w);
+	top: 0;
+	bottom: 0;
+	width: 1px;
+	background: var(--ts-rule);
+	pointer-events: none;
+	z-index: 3;
+}
+.task-span .ts-gantt .ts-cell-name,
+.task-span .ts-gantt .ts-head-name { border-right: 0; }
