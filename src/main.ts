@@ -26,6 +26,7 @@ import {
 	Plugin,
 	Setting,
 	TFile,
+	TFolder,
 	WorkspaceLeaf,
 	debounce,
 	setIcon,
@@ -1431,29 +1432,63 @@ class ScopePicker extends Modal {
 		contentEl.addClass("ts-modal");
 		this.titleEl.setText("Which folders should this pane read?");
 
-		// Every folder, including the ones that only hold other folders. Listing
-		// only folders with files in them meant a project folder could not be
-		// picked — you had to tick its five phases one at a time.
-		const folders = new Set<string>();
+		// The vault's own folder tree, walked in the vault's own order.
+		//
+		// This used to be assembled from the paths of markdown files and then
+		// sorted as flat strings. Both halves were wrong. A folder holding only
+		// drawings, pages or sub-folders never appeared at all; and sorting full
+		// paths puts "_Programme" after "07 ECC IQ", because `_` sorts after a
+		// digit, while a sibling whose name is a prefix of another lands between
+		// a folder and its own children. The list stopped matching the file
+		// explorer, which is the only thing a person can check it against.
+		const folders: { path: string; name: string; depth: number }[] = [];
+		const walk = (folder: TFolder, depth: number) => {
+			const kids = folder.children
+				.filter((c): c is TFolder => c instanceof TFolder)
+				// localeCompare, as the explorer sorts: by name, within a level.
+				.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+			for (const kid of kids) {
+				folders.push({ path: kid.path, name: kid.name, depth });
+				walk(kid, depth + 1);
+			}
+		};
+		walk(this.app.vault.getRoot(), 0);
+
+		// How many tasks sit beneath each folder, counted from the metadata cache
+		// rather than by reading files: Obsidian has already parsed every list
+		// item and knows which are tasks, and this runs on every open.
+		const count = new Map<string, number>();
 		for (const f of this.app.vault.getMarkdownFiles()) {
-			const at = f.path.lastIndexOf("/");
-			if (at < 0) continue;
-			const parts = f.path.slice(0, at).split("/");
-			for (let i = 1; i <= parts.length; i++) folders.add(parts.slice(0, i).join("/"));
+			const items = this.app.metadataCache.getFileCache(f)?.listItems ?? [];
+			const n = items.filter((li) => li.task !== undefined).length;
+			if (!n) continue;
+			const parts = f.path.split("/").slice(0, -1);
+			// Credited to the folder and to every folder above it, because ticking
+			// a folder reads everything beneath it.
+			for (let i = 1; i <= parts.length; i++) {
+				const key = parts.slice(0, i).join("/");
+				count.set(key, (count.get(key) ?? 0) + n);
+			}
 		}
 
-		contentEl.createDiv({
-			cls: "ts-field-hint",
-			text: "A folder includes everything beneath it. Nothing ticked reads the whole vault.",
-		});
+		// Shown, not hidden. A folder with no tasks today may have them tomorrow,
+		// and a picker that omits folders stops matching the file explorer — which
+		// is the only thing a person can check it against.
+		let onlyTasks = false;
+
+		const tools = contentEl.createDiv({ cls: "ts-scope-tools" });
+		const only = tools.createDiv({ cls: "ts-scope-only" });
+		const onlyBox = only.createDiv({ cls: "ts-box" });
+		only.createSpan({ text: "Only folders with tasks" });
 
 		const list = contentEl.createDiv({ cls: "ts-scope-list" });
 		const draw = () => {
 			list.empty();
-			for (const folder of [...folders].sort()) {
-				const depth = folder.split("/").length - 1;
-				const name = folder.split("/").pop() ?? folder;
-				const row = list.createDiv({ cls: "ts-scope-row" });
+			onlyBox.toggleClass("is-on", onlyTasks);
+			for (const { path: folder, name, depth } of folders) {
+				const tasks = count.get(folder) ?? 0;
+				if (onlyTasks && !tasks) continue;
+				const row = list.createDiv({ cls: `ts-scope-row${tasks ? "" : " is-empty"}` });
 				row.style.paddingLeft = `${10 + depth * 16}px`;
 
 				// Covered by an ancestor: shown ticked and faint, because
@@ -1465,6 +1500,8 @@ class ScopePicker extends Modal {
 				const box = row.createDiv({ cls: `ts-box${on ? " is-on" : ""}` });
 				if (parent) box.addClass("is-inherited");
 				row.createDiv({ cls: "ts-scope-name", text: name });
+				// The count is the thing that answers "is this the folder I mean".
+				if (tasks) row.createDiv({ cls: "ts-scope-count", text: String(tasks) });
 				if (parent) row.createDiv({ cls: "ts-scope-via", text: "included" });
 				if (parent) { row.addClass("is-inherited"); continue; }
 
@@ -1476,6 +1513,7 @@ class ScopePicker extends Modal {
 			}
 		};
 		draw();
+		only.onclick = () => { onlyTasks = !onlyTasks; draw(); };
 
 		const foot = contentEl.createDiv({ cls: "ts-modal-foot" });
 		foot.createEl("button", { text: "Whole vault" }).onclick = () => {

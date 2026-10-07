@@ -1682,3 +1682,38 @@ body.ts-dragging .ts-tray-row:hover { border-color: var(--ts-rule); }
 	background: color-mix(in srgb, var(--ts-accent, #4a6) 12%, transparent);
 	border-radius: 4px;
 }
+
+
+/* ══ the scope picker ══════════════════════════════════════════════════════
+   It stands next to the file explorer in the reader's mind, so it is sorted
+   and indented the way the explorer is, and shows the same folders. What it
+   adds is the count — the thing that answers "is this the folder I meant". */
+
+.task-span .ts-scope-tools,
+.ts-modal .ts-scope-tools {
+	display: flex; align-items: center;
+	padding: 2px 10px 8px;
+}
+.ts-scope-only {
+	display: inline-flex; align-items: center; gap: 7px;
+	font-size: 12px; color: var(--text-muted);
+	cursor: pointer; user-select: none;
+}
+.ts-scope-only:hover { color: var(--text-normal); }
+
+.ts-scope-row { display: flex; align-items: center; gap: 8px; }
+
+/* A folder with nothing in it is still listed — hiding it would break the one
+   comparison a person can make — but it recedes. */
+.ts-scope-row.is-empty .ts-scope-name { opacity: .45; }
+
+.ts-scope-name { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.ts-scope-count {
+	flex: none;
+	font-size: 11px; font-weight: 600;
+	padding: 1px 7px; border-radius: 999px;
+	background: var(--background-modifier-border);
+	color: var(--text-muted);
+	font-variant-numeric: tabular-nums;
+}
