@@ -114,6 +114,18 @@ async function paint(
 	const groups = groupTasks(tasks, q.group);
 	const { bars, geo, slots, days } = LAYOUTS[q.view](host, groups, q);
 
+	// Every node that stands for a date says so, so a drag from the tray can
+	// find its target with one `closest()` instead of this file knowing the
+	// class names of six layouts. The gantt has no cells — it has a rail and a
+	// scale — so it is marked with its geometry instead and read on drop.
+	for (const d of days ?? []) d.node.setAttr("data-at", String(d.at));
+	for (const sl of slots ?? []) sl.node.setAttr("data-at", String(sl.at));
+	if (geo) {
+		for (const rail of Array.from(host.querySelectorAll<HTMLElement>(".ts-cell-track"))) {
+			rail.setAttr("data-rail", `${geo.from}:${geo.colW}`);
+		}
+	}
+
 	// The drawing names an icon; only this file may import Obsidian to draw it.
 	//
 	// The icon goes in a slot of its own, never straight onto the element that
@@ -622,13 +634,6 @@ class SpanView extends ItemView {
 	private async drawTray() {
 		this.tray.empty();
 
-		// Only where a timeline is being read. In the calendars a date is the
-		// whole premise, so something without one has nothing to say there.
-		if (!GROUPABLE.includes(this.q.view)) {
-			this.tray.addClass("is-hidden");
-			return;
-		}
-
 		const waiting = await collect(this.app, this.q, "unscheduled");
 		if (!waiting.length) {
 			this.tray.addClass("is-hidden");
@@ -671,9 +676,94 @@ class SpanView extends ItemView {
 				}).open();
 			};
 
-			row.onclick = (ev) => void this.plugin.reveal(task, ev);
+			this.dragToSchedule(row, task);
 			row.oncontextmenu = (ev) => this.plugin.menu(task, ev);
 		}
+	}
+
+	/**
+	 * Drag a tray row onto the chart to schedule it.
+	 *
+	 * The same gesture in every view, because every layout already says which
+	 * of its nodes stands for a date. A day cell, an hour slot, a month square
+	 * and a week column are all just somewhere with an `at`; the gantt is the
+	 * one exception, and it carries a scale rather than cells.
+	 *
+	 * A click still opens the note. The drag only begins once the pointer has
+	 * actually travelled, or every click would be a failed drag.
+	 */
+	private dragToSchedule(row: HTMLElement, task: Task) {
+		row.addEventListener("pointerdown", (ev: PointerEvent) => {
+			if (ev.button !== 0) return;
+			const x0 = ev.clientX;
+			const y0 = ev.clientY;
+			let dragging = false;
+			let ghost: HTMLElement | null = null;
+			let lit: HTMLElement | null = null;
+			let at: number | null = null;
+
+			const light = (el: HTMLElement | null) => {
+				if (lit === el) return;
+				lit?.removeClass("ts-drop-on");
+				lit = el;
+				lit?.addClass("ts-drop-on");
+			};
+
+			const move = (e: PointerEvent) => {
+				if (!dragging) {
+					if (Math.abs(e.clientX - x0) + Math.abs(e.clientY - y0) < 5) return;
+					dragging = true;
+					row.setPointerCapture(e.pointerId);
+					document.body.addClass("ts-dragging");
+					ghost = document.body.createDiv({ cls: "ts-ghost", text: task.text });
+				}
+				if (ghost) {
+					ghost.style.left = `${e.clientX + 12}px`;
+					ghost.style.top = `${e.clientY + 12}px`;
+				}
+				// The ghost follows the pointer, so it would be the thing under it.
+				if (ghost) ghost.style.pointerEvents = "none";
+				const under = document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null;
+				const cell = under?.closest<HTMLElement>("[data-at]") ?? null;
+				if (cell) {
+					at = Number(cell.getAttr("data-at"));
+					light(cell);
+					return;
+				}
+				const rail = under?.closest<HTMLElement>("[data-rail]") ?? null;
+				if (rail) {
+					const [from, colW] = (rail.getAttr("data-rail") ?? "0:1").split(":").map(Number);
+					const box = rail.getBoundingClientRect();
+					const x = e.clientX - box.left + rail.scrollLeft;
+					// Floor to the day the pointer is over, not the nearest one: a
+					// bar starts where the column starts.
+					at = from + Math.floor(x / colW) * 86_400_000;
+					light(rail);
+					return;
+				}
+				at = null;
+				light(null);
+			};
+
+			const up = async () => {
+				row.removeEventListener("pointermove", move);
+				row.removeEventListener("pointerup", up);
+				row.removeEventListener("pointercancel", up);
+				ghost?.remove();
+				light(null);
+				document.body.removeClass("ts-dragging");
+				if (!dragging) { void this.plugin.reveal(task, ev); return; }
+				if (at === null) return;
+				// Dropped on a day means due that day. A duration nobody stated is
+				// a duration nobody should be given; the edge is draggable after.
+				const on = new Date(at).setHours(0, 0, 0, 0);
+				if (await setDates(this.app, task, on, on)) await this.redraw();
+			};
+
+			row.addEventListener("pointermove", move);
+			row.addEventListener("pointerup", up);
+			row.addEventListener("pointercancel", up);
+		});
 	}
 
 	/** Light one tab. By name, not by index: the tabs sit in two strips now. */

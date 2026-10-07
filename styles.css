@@ -1645,3 +1645,40 @@
 }
 .task-span .ts-tray-set:hover { background: var(--ts-hover); color: var(--ts-accent); }
 .task-span .ts-tray-set svg { width: 14px; height: 14px; }
+
+
+/* ══ dragging out of the tray ══════════════════════════════════════════════
+   The same gesture in every view: pick a row up, drop it on a day. */
+
+.task-span .ts-tray-row { touch-action: none; }
+.task-span .ts-tray-row:active { cursor: grabbing; }
+
+/* The label travels with the pointer, so there is never a question about what
+   is being dropped — which matters most in Year, where the target is 12px. */
+.ts-ghost {
+	position: fixed;
+	z-index: 9999;
+	max-width: 260px;
+	padding: 5px 10px;
+	border-radius: 7px;
+	font-size: 12px;
+	background: var(--ts-accent, var(--interactive-accent));
+	color: var(--text-on-accent, #fff);
+	box-shadow: 0 6px 20px rgba(0, 0, 0, .25);
+	pointer-events: none;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+/* While a drag is live nothing else should look clickable or select. */
+body.ts-dragging { cursor: grabbing; user-select: none; }
+body.ts-dragging .ts-tray-row:hover { border-color: var(--ts-rule); }
+
+/* The target, said plainly. An inset ring rather than a border, so a cell
+   does not change size at the moment somebody is aiming at it. */
+.ts-drop-on {
+	box-shadow: inset 0 0 0 2px var(--ts-accent, var(--interactive-accent));
+	background: color-mix(in srgb, var(--ts-accent, #4a6) 12%, transparent);
+	border-radius: 4px;
+}

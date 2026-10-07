@@ -95,9 +95,13 @@ function withDate(body: string, emoji: string, when: number | null): string {
 export async function setDates(app: App, task: Task, start: number, end: number): Promise<boolean> {
 	return onLine(app, task, (body, box) => {
 		let out = body;
-		if (task.moment) {
+		if (task.moment && start === end) {
 			// One date in, one date out. Giving a moment a span because somebody
 			// dragged it would invent a duration nobody wrote down.
+			//
+			// `start === end` matters: a task with no dates at all is a moment by
+			// this definition, so without it, scheduling one from the tray with a
+			// real start and a real finish would silently drop the start.
 			out = withDate(out, DUE, end);
 		} else {
 			// Respect whichever field supplied the start: a task using ⏳ keeps ⏳.
