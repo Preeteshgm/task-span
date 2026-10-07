@@ -181,13 +181,16 @@ export function gantt(host: HTMLElement, groups: Group[], q: Query): Drawn {
 		n++;
 		const row = div(block, `ts-row ${stateOf(task)}`);
 		const name = div(row, "ts-cell-name");
-		if (depth) name.style.paddingLeft = `${depth * 14}px`;
 		div(name, "ts-num", String(n));
 		// No checkbox here, deliberately. A Gantt is read to answer "when does
 		// this happen and what overlaps it"; ticking belongs to Tasks and the
 		// calendars, where a row is a thing to do rather than a thing to place.
 		// The bar still carries the status as colour, so nothing is lost.
 		const label = div(name, "ts-name", task.text);
+		// The indent belongs to the label, never to the cell. Indenting the cell
+		// moves the serial number with it, and the number then no longer lines up
+		// with the `#` in the header — the column stops being a column.
+		if (depth) label.style.paddingLeft = `${12 + depth * 14}px`;
 		label.title = `${task.text}
 ${task.file}`;
 
