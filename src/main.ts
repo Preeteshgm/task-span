@@ -22,6 +22,7 @@ import {
 	Menu,
 	Modal,
 	Notice,
+	normalizePath,
 	Plugin,
 	Setting,
 	TFile,
@@ -1003,7 +1004,9 @@ class SpanView extends ItemView {
 
 		const cfg = await this.dailyConfig();
 		const name = formatDate(this.q.cursor, cfg.format);
-		const path = cfg.folder ? `${cfg.folder}/${name}.md` : `${name}.md`;
+		// normalizePath, because the folder comes from a setting somebody typed:
+		// a leading slash or a trailing one makes a path the vault cannot find.
+		const path = normalizePath(cfg.folder ? `${cfg.folder}/${name}.md` : `${name}.md`);
 		let file = this.app.vault.getAbstractFileByPath(path);
 
 		head.createSpan({ cls: "ts-side-name", text: name });
@@ -1054,8 +1057,8 @@ class SpanView extends ItemView {
 				} else if (next.trim()) {
 					// Only make a file when there is something to put in it: an
 					// empty note for every day you glanced at is litter.
-					if (cfg.folder && !this.app.vault.getAbstractFileByPath(cfg.folder)) {
-						await this.app.vault.createFolder(cfg.folder).catch(() => undefined);
+					if (cfg.folder && !this.app.vault.getAbstractFileByPath(normalizePath(cfg.folder))) {
+						await this.app.vault.createFolder(normalizePath(cfg.folder)).catch(() => undefined);
 					}
 					await this.app.vault.create(path, next);
 				}
