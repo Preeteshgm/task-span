@@ -114,9 +114,17 @@ async function paint(
 	const { bars, geo, slots, days } = LAYOUTS[q.view](host, groups, q);
 
 	// The drawing names an icon; only this file may import Obsidian to draw it.
+	//
+	// The icon goes in a slot of its own, never straight onto the element that
+	// named it: `setIcon` empties its host before inserting the glyph, so an
+	// element carrying both an icon and text loses the text. That is how every
+	// date chip in the Tasks view came to show an icon and nothing else.
 	host.findAll("[data-icon]").forEach((el) => {
 		const name = el.dataset.icon;
-		if (name) setIcon(el, name);
+		if (!name) return;
+		const slot = createSpan({ cls: "ts-icon-slot" });
+		el.prepend(slot);
+		setIcon(slot, name);
 	});
 
 	for (const { task, node } of bars) {

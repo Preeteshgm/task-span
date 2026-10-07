@@ -1492,3 +1492,65 @@
 /* A band spans the whole column, so it starts where the numbers do, not where
    the names do — otherwise the heading looks indented under its own rows. */
 .task-span .ts-row.is-band .ts-cell-name { padding-left: 12px; }
+
+
+/* ══ the Tasks row, made readable ══════════════════════════════════════════
+   Measured against what a reader actually needs to pick a row out of forty:
+   a name that carries, dates that are legible as dates, and enough height
+   that the eye can land on one line. The previous row was dense enough to
+   read as a block of grey. */
+
+.task-span .ts-icon-slot { display: flex; align-items: center; flex: none; }
+
+.task-span .ts-list-row {
+	min-height: 40px;
+	padding: 9px 12px;
+	gap: 12px;
+}
+
+/* The name is the thing being looked for, so it is the only thing at full
+   strength. Everything else on the row is checked after it has been found. */
+.task-span .ts-list-row .ts-name {
+	font-size: 13.5px;
+	font-weight: 500;
+	color: var(--ts-ink);
+	line-height: 1.35;
+}
+
+/* A date nobody can read is an icon with a decoration next to it. The label
+   says which date it is, because "5 Oct" alone does not. */
+.task-span .ts-chip {
+	gap: 5px;
+	padding: 3px 8px;
+	font-size: 11.5px;
+	color: var(--ts-ink);
+	background: var(--ts-wash);
+}
+.task-span .ts-chip svg { width: 12px; height: 12px; opacity: .55; }
+.task-span .ts-chip-text { color: var(--ts-ink); }
+
+.task-span .ts-chip.is-late,
+.task-span .ts-chip.is-late .ts-chip-text {
+	color: var(--ts-late);
+	font-weight: 650;
+}
+.task-span .ts-chip.is-late svg { opacity: 1; }
+
+/* The source is a reference, not a column to read down. It stays faint and
+   gives its width back to the name when the pane is narrow. */
+.task-span .ts-src {
+	font-size: 10.5px;
+	color: var(--ts-faint);
+	max-width: 150px;
+}
+@media (max-width: 720px) { .task-span .ts-src { display: none; } }
+
+.task-span .ts-list-right { gap: 8px; align-items: center; }
+
+/* A finished row dims, but not so far that it cannot be read at all. */
+.task-span .ts-list-row.is-done { opacity: .62; }
+.task-span .ts-list-row.is-cancelled { opacity: .5; }
+
+/* The status accent carries real weight on the left edge, as it does in the
+   tool this was measured against. */
+.task-span .ts-list-row { border-left-width: 4px; }
