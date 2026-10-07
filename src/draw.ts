@@ -119,6 +119,10 @@ export function gantt(host: HTMLElement, groups: Group[], q: Query): Drawn {
 	const trackW = days * colW;
 
 	const root = div(host, "ts-gantt");
+	// The body draws its grid from this, so the columns under a bar are the same
+	// columns as the dates above it. Two separate griddings cannot stay in step.
+	root.style.setProperty("--ts-col-w", `${colW}px`);
+	root.style.setProperty("--ts-week-w", `${colW * 7}px`);
 	const head = div(root, "ts-head");
 	const headName = div(head, "ts-head-name");
 	div(headName, "ts-head-num", "#");
@@ -193,7 +197,9 @@ export function gantt(host: HTMLElement, groups: Group[], q: Query): Drawn {
 		// The indent belongs to the label, never to the cell. Indenting the cell
 		// moves the serial number with it, and the number then no longer lines up
 		// with the `#` in the header — the column stops being a column.
-		if (depth) label.style.paddingLeft = `${12 + depth * STEP}px`;
+		// No depth indent on a task name. The band above it already says where it
+		// belongs, and indenting every row as well pushes the names off the left
+		// edge for nothing — the column is narrow and the name is what it is for.
 		label.title = `${task.text}
 ${task.file}`;
 

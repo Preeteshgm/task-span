@@ -1776,3 +1776,39 @@ body.ts-dragging .ts-tray-row:hover { border-color: var(--ts-rule); }
 .task-span .ts-group.is-shut > .ts-group,
 .task-span .ts-group.is-shut > .ts-row:not(.is-band),
 .task-span .ts-group.is-shut > .ts-list-row { display: none; }
+
+
+/* ══ the grid, through the body ════════════════════════════════════════════
+   The header drew its columns and the rows drew none, so a bar sat on a plain
+   field and nothing said which day it was over. Drawn as a background on the
+   rail, from the same column width the header uses, so the two cannot drift.
+
+   A gradient rather than elements: one paint instead of a div per day per row,
+   which at 400 days and 200 rows is the difference between a chart and a
+   stutter. */
+
+.task-span .ts-gantt .ts-cell-track .ts-scroll {
+	background-image:
+		repeating-linear-gradient(to right,
+			var(--ts-rule) 0 1px,
+			transparent 1px var(--ts-week-w)),
+		repeating-linear-gradient(to right,
+			color-mix(in srgb, var(--ts-rule) 45%, transparent) 0 1px,
+			transparent 1px var(--ts-col-w));
+}
+
+/* Today stays on top of the grid, not under it. */
+.task-span .ts-gantt .ts-rail-today { z-index: 1; }
+.task-span .ts-gantt .ts-bar { z-index: 2; }
+
+/* ══ a narrower serial column ══════════════════════════════════════════════
+   Three digits is as far as any of these go, and the column was sized for a
+   heading rather than for what it holds. The space goes to the name. */
+
+.task-span .ts-gantt { --ts-num-w: 32px; }
+.task-span .ts-head-num,
+.task-span .ts-cell-name .ts-num { font-size: 10.5px; }
+
+/* The name starts at the left edge of its column. */
+.task-span .ts-cell-name .ts-name { padding-left: 10px; }
+.task-span .ts-head-task { padding-left: 10px; }
