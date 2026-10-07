@@ -2069,3 +2069,29 @@ body.ts-dragging .ts-tray-row:hover { border-color: var(--ts-rule); }
 .task-span .ts-gantt .ts-row:hover .ts-cell-name {
 	background: color-mix(in srgb, var(--ts-tint) 9%, var(--ts-paper));
 }
+
+
+/* ══ no gaps in a table ════════════════════════════════════════════════════
+   A group block spaced its children 4px apart. In a list of cards that reads
+   as breathing room; in a table it is a 4px band with no row in it — so the
+   grid, the today line and the divider all stop dead in every gap and start
+   again below. That is what was left of the broken lines, and it is also the
+   space above each row.
+
+   Rows in the gantt touch. The separator between them is a border, which is
+   part of the row, rather than a gap, which is part of nothing. */
+
+.task-span .ts-gantt .ts-group { gap: 0; }
+.task-span .ts-gantt .ts-row { margin: 0; }
+
+/* With the rows contiguous, the sticky name cells form one unbroken column,
+   so their right borders form one unbroken line from the header to the last
+   row — the solid divider, made of the thing that was already there. */
+.task-span .ts-gantt .ts-head-name,
+.task-span .ts-gantt .ts-cell-name {
+	border-right: 1px solid var(--ts-rule);
+}
+
+/* A band is a row like any other here: same height rules, no extra spacing. */
+.task-span .ts-gantt .ts-list-band,
+.task-span .ts-gantt .ts-row.is-band { margin: 0; }
