@@ -1968,3 +1968,45 @@ body.ts-dragging .ts-tray-row:hover { border-color: var(--ts-rule); }
 }
 .task-span .ts-gantt .ts-cell-name,
 .task-span .ts-gantt .ts-head-name { border-right: 0; }
+
+
+/* ══ one grid, drawn once ══════════════════════════════════════════════════
+   The header drew its columns as a div per day with a left border; the body
+   painted a gradient. Two mechanisms for one grid cannot agree to the pixel,
+   so the lines above a bar never quite sat over the lines beside it. Bands
+   then painted no grid at all, so it vanished at every heading as well.
+
+   Now every track — header, band and row — paints the same gradient from the
+   same two widths. There is one grid, and nothing can shift relative to it. */
+
+.task-span .ts-gantt .ts-head-track .ts-scroll,
+.task-span .ts-gantt .ts-cell-track .ts-scroll,
+.task-span .ts-gantt .ts-row.is-band .ts-cell-track .ts-scroll {
+	background-image:
+		repeating-linear-gradient(to right,
+			color-mix(in srgb, var(--ts-rule) 80%, transparent) 0 1px,
+			transparent 1px var(--ts-week-w)),
+		repeating-linear-gradient(to right,
+			color-mix(in srgb, var(--ts-rule) 22%, transparent) 0 1px,
+			transparent 1px var(--ts-col-w));
+	background-repeat: repeat;
+}
+
+/* The day cells carry their label and nothing else. Their borders were the
+   other half of the double grid. */
+.task-span .ts-gantt .ts-head-track .ts-col {
+	border-left: 0;
+	background: none;
+}
+
+/* Today stays the one exception: a single line, not part of the repeat, so it
+   is drawn where the day starts in both the header and every row. */
+.task-span .ts-gantt .ts-head-track .ts-col.is-today {
+	border-left: 1px dashed var(--ts-accent);
+	color: var(--ts-accent);
+	font-weight: 700;
+}
+
+/* A band's track is left clear so the grid reads straight through it — the
+   heading is carried by the name column, which is where headings belong. */
+.task-span .ts-gantt .ts-row.is-band .ts-cell-track { background: none; }
