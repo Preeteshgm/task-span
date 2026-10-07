@@ -1,0 +1,1494 @@
+/* Task Span
+ *
+ * Every colour lives here and every one is a variable with a fallback. That is
+ * the point of the plugin: the chart takes the colours of whatever it has been
+ * dropped into.
+ *
+ * The fallback chain reaches for a deck's tokens first (--accent, --ink,
+ * --rule), then Obsidian's own, so the same markup looks right in a note, in a
+ * canvas card and in a presentation without being told which it is in.
+ *
+ * Proportions follow the convention every project tool converges on: a 50px
+ * day column, a 40px row, a 24px bar. They are not arbitrary — a bar thinner
+ * than about 20px cannot hold a label, and a row taller than about 44px turns
+ * a twenty-task plan into two screens.
+ */
+
+.task-span {
+	--ts-ink: var(--ink, var(--text-normal));
+	--ts-soft: var(--ink-soft, var(--text-muted));
+	--ts-faint: var(--ink-faint, var(--text-faint));
+	--ts-rule: var(--rule, var(--background-modifier-border));
+	--ts-paper: var(--paper, var(--background-primary));
+	--ts-panel: var(--panel, var(--background-secondary));
+	--ts-accent: var(--accent, var(--interactive-accent));
+	--ts-on-accent: var(--accent-ink, var(--text-on-accent));
+	--ts-wash: var(--wash, var(--background-modifier-hover));
+	--ts-done: var(--color-green, #0E7A4B);
+	--ts-cancel: var(--color-orange, #B06A00);
+	--ts-late: var(--color-red, #C62828);
+
+	--ts-col: 50px;
+	--ts-row: 40px;
+	--ts-bar: 24px;
+	--ts-name-w: 230px;
+	--ts-radius: 6px;
+
+	font-family: var(--body-font, var(--font-interface));
+	font-size: 13px;
+	color: var(--ts-ink);
+	margin: 0.6em 0;
+}
+.task-span.is-view { margin: 0; height: 100%; display: flex; flex-direction: column; }
+
+/* ══ gantt ═══════════════════════════════════════════════════════════════ */
+.ts-gantt {
+	border: 1px solid var(--ts-rule);
+	border-radius: 10px;
+	overflow: hidden;
+	background: var(--ts-paper);
+}
+
+.ts-head {
+	display: flex;
+	border-bottom: 1px solid var(--ts-rule);
+	background: var(--ts-panel);
+	position: sticky;
+	top: 0;
+	z-index: 2;
+}
+.ts-head-name,
+.ts-cell-name {
+	flex: 0 0 var(--ts-name-w);
+	width: var(--ts-name-w);
+	min-width: var(--ts-name-w);
+	padding: 0 10px;
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	border-right: 1px solid var(--ts-rule);
+	overflow: hidden;
+}
+.ts-head-name { height: 34px; font-weight: 600; color: var(--ts-soft); font-size: 11.5px;
+	letter-spacing: .05em; text-transform: uppercase; }
+
+/* The track scrolls; the name column does not. The one question asked of a
+   gantt is "which task is that bar", and a name that has scrolled away cannot
+   answer it. */
+.ts-head-track,
+.ts-cell-track { flex: 1 1 auto; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
+.ts-head-track::-webkit-scrollbar,
+.ts-cell-track::-webkit-scrollbar { display: none; }
+.ts-head-track { height: 34px; }
+.ts-scroll { position: relative; height: 100%; }
+
+/* Dashed day rules, solid on a week boundary: the eye needs the weeks to
+   count by, and a solid line every day turns the chart into graph paper. */
+.ts-col {
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	border-left: 1px dashed var(--ts-rule);
+	font-size: 10.5px;
+	color: var(--ts-soft);
+	text-align: center;
+	padding-top: 11px;
+	white-space: nowrap;
+}
+.ts-col.is-week { border-left-style: solid; }
+/* Today is a tinted column, not a line: a line sits behind the bars and is
+   lost among them; a wash reads underneath everything. */
+.ts-col.is-today {
+	border-left: 1px solid var(--ts-late);
+	background: color-mix(in srgb, var(--ts-late) 7%, transparent);
+	color: var(--ts-late);
+	font-weight: 700;
+}
+
+.ts-body { max-height: 70vh; overflow-y: auto; }
+.ts-row { display: flex; height: var(--ts-row); border-bottom: 1px solid var(--ts-rule); position: relative; }
+.ts-row:last-child { border-bottom: 0; }
+.ts-row:hover { background: var(--ts-wash); }
+.ts-row.is-band { height: 28px; background: var(--ts-panel); }
+.ts-row.is-band .ts-cell-name {
+	font-size: 11px; font-weight: 700; letter-spacing: .05em;
+	text-transform: uppercase; color: var(--ts-soft);
+}
+
+.ts-num { flex: none; width: 20px; text-align: right; color: var(--ts-faint); font-size: 11px;
+	font-variant-numeric: tabular-nums; }
+.ts-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.ts-bar {
+	position: absolute;
+	top: calc((var(--ts-row) - var(--ts-bar)) / 2);
+	height: var(--ts-bar);
+	border-radius: var(--ts-radius);
+	background: color-mix(in srgb, var(--ts-accent) 42%, transparent);
+	border-left: 3px solid var(--ts-accent);
+	transition: filter .12s ease;
+}
+.ts-bar.is-open { }
+.ts-bar.is-done { background: color-mix(in srgb, var(--ts-done) 36%, transparent); border-left-color: var(--ts-done); }
+.ts-bar.is-cancelled { background: color-mix(in srgb, var(--ts-cancel) 26%, transparent); border-left-color: var(--ts-cancel); }
+.ts-bar.is-doing { opacity: 1; box-shadow: inset 0 0 0 2px var(--ts-accent); }
+/* Late is a state, not a status: an open task whose due date has passed. It is
+   the one thing a plan should be loud about. */
+.ts-bar.is-late { background: color-mix(in srgb, var(--ts-late) 40%, transparent); border-left-color: var(--ts-late); }
+.ts-bar.is-moment { border-radius: 3px; box-shadow: inset 0 0 0 2px var(--ts-accent); }
+.ts-bar.is-clickable { cursor: pointer; }
+.ts-bar.is-clickable:hover { filter: brightness(1.08) saturate(1.1); }
+
+/* ══ list ════════════════════════════════════════════════════════════════ */
+.ts-list { border: 1px solid var(--ts-rule); border-radius: 10px; overflow: hidden; background: var(--ts-paper); }
+.ts-list-band {
+	padding: 6px 12px; background: var(--ts-panel); color: var(--ts-soft);
+	font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
+}
+.ts-list-row {
+	display: flex; align-items: center; gap: 10px;
+	padding: 8px 12px; border-bottom: 1px solid var(--ts-rule);
+	border-left: 3px solid var(--ts-accent);
+}
+.ts-list-row:last-child { border-bottom: 0; }
+.ts-list-row:hover { background: var(--ts-wash); }
+.ts-list-row.is-done { border-left-color: var(--ts-done); }
+.ts-list-row.is-done .ts-name { text-decoration: line-through; color: var(--ts-faint); }
+.ts-list-row.is-cancelled { border-left-color: var(--ts-cancel); }
+.ts-list-row.is-late { border-left-color: var(--ts-late); }
+.ts-list-row.is-clickable { cursor: pointer; }
+.ts-box {
+	flex: none; width: 14px; height: 14px; border-radius: 3px;
+	border: 1.5px solid var(--ts-rule);
+}
+.ts-list-row.is-done .ts-box { background: var(--ts-done); border-color: var(--ts-done); }
+.ts-list-row .ts-name { flex: 1 1 auto; }
+.ts-meta { display: flex; gap: 12px; align-items: center; flex: none; }
+.ts-date { font-size: 11.5px; color: var(--ts-soft); font-variant-numeric: tabular-nums; }
+.ts-date.is-late { color: var(--ts-late); font-weight: 600; }
+.ts-src { font-size: 11px; color: var(--ts-faint); }
+
+/* ══ the view's toolbar ══════════════════════════════════════════════════ */
+/* A floating bar rather than a banded one: it has to sit above four very
+   different drawings without looking welded to any of them. */
+.ts-toolbar {
+	display: flex; align-items: center; gap: 10px;
+	margin: 10px; padding: 6px 8px;
+	border: 1px solid var(--ts-rule); border-radius: 12px;
+	background: var(--ts-paper);
+	box-shadow: 0 1px 6px -1px rgb(0 0 0 / .04), 0 1px 4px rgb(0 0 0 / .04);
+}
+.ts-tabs {
+	display: flex; gap: 2px; padding: 2px;
+	background: var(--ts-wash); border-radius: 8px;
+}
+.ts-tab {
+	display: flex; align-items: center; gap: 5px;
+	padding: 4px 10px; border-radius: 6px; cursor: pointer;
+	font-size: 12px; color: var(--ts-soft);
+}
+.ts-tab:hover { color: var(--ts-ink); }
+.ts-tab.is-on {
+	background: var(--ts-paper); color: var(--ts-accent); font-weight: 600;
+	box-shadow: 0 1px 3px rgb(0 0 0 / .08);
+}
+.ts-tab-icon { display: flex; }
+.ts-tab-icon svg { width: 14px; height: 14px; }
+
+.ts-caption {
+	flex: 1 1 auto; text-align: center;
+	font-weight: 600; font-size: 13px; color: var(--ts-ink);
+}
+.ts-tools { display: flex; gap: 2px; align-items: center; }
+.ts-icon-btn {
+	display: flex; align-items: center; justify-content: center;
+	width: 28px; height: 28px; border-radius: 7px; cursor: pointer;
+	color: var(--ts-soft);
+}
+.ts-icon-btn:hover { background: var(--ts-wash); color: var(--ts-ink); }
+.ts-icon-btn svg { width: 15px; height: 15px; }
+.ts-view-body { flex: 1 1 auto; overflow: auto; padding: 10px; }
+
+/* ══ the furniture ═══════════════════════════════════════════════════════ */
+.ts-title {
+	font-family: var(--display-font, var(--font-interface));
+	font-size: 1.1em; font-weight: 700; margin-bottom: 6px;
+}
+.ts-foot {
+	font-size: 11px; color: var(--ts-faint); margin-top: 5px;
+	font-variant-numeric: tabular-nums;
+}
+.ts-empty,
+.ts-problem {
+	border: 1px solid var(--ts-rule); border-radius: 8px;
+	padding: 10px 12px; color: var(--ts-soft); background: var(--ts-wash);
+}
+.ts-problem-head { color: var(--ts-ink); font-weight: 600; margin-bottom: 4px; }
+.ts-problem ul { margin: 0; padding-left: 18px; }
+
+/* ══ editing ═════════════════════════════════════════════════════════════
+ * The cursor is the whole affordance for resizing: nothing else says the ends
+ * are grabbable, and a tooltip saying so would be an admission of failure.
+ */
+.ts-bar.is-dragging { opacity: 1; cursor: grabbing; box-shadow: 0 2px 10px rgb(0 0 0 / .3); z-index: 3; }
+.ts-ghost {
+	position: absolute; left: 50%; top: -22px; transform: translateX(-50%);
+	background: var(--ts-ink); color: var(--ts-paper);
+	font-size: 11px; padding: 2px 7px; border-radius: 4px; white-space: nowrap;
+	pointer-events: none; font-variant-numeric: tabular-nums;
+}
+.ts-add {
+	margin-top: 6px; padding: 6px 10px;
+	border: 1px dashed var(--ts-rule); border-radius: 8px;
+	color: var(--ts-soft); font-size: 12px; cursor: pointer; text-align: center;
+}
+.ts-add:hover { border-color: var(--ts-accent); color: var(--ts-accent); background: var(--ts-wash); }
+
+/* ══ the toolbar, matched to the reference ═══════════════════════════════
+ * Tabs left, where the eye starts. The caption centred, because it answers
+ * "where am I" and the middle is where the eye already is. Tools right, as
+ * icons: nine labelled buttons would be a second navigation bar.
+ */
+.ts-tabs { background: var(--ts-wash); border-radius: 9px; padding: 3px; gap: 1px; }
+.ts-tab { padding: 5px 11px; border-radius: 7px; font-size: 12.5px; white-space: nowrap; }
+.ts-tab.is-on {
+	background: color-mix(in srgb, var(--ts-accent) 16%, var(--ts-paper));
+	color: var(--ts-accent);
+	box-shadow: none;
+}
+.ts-tab-icon svg { width: 13px; height: 13px; }
+
+.ts-nav { display: flex; align-items: center; gap: 0; }
+.ts-nav.is-hidden { display: none; }
+.ts-today-btn {
+	padding: 3px 9px; border-radius: 7px; cursor: pointer;
+	font-size: 12px; color: var(--ts-soft);
+}
+.ts-today-btn:hover { background: var(--ts-wash); color: var(--ts-ink); }
+.ts-tools > .ts-icon-btn + .ts-nav { margin-left: 6px; }
+
+/* ══ day ═════════════════════════════════════════════════════════════════ */
+.ts-split { flex: 1 1 auto; display: flex; gap: 0; min-height: 0; }
+.ts-view-body { flex: 1 1 auto; overflow: auto; padding: 0 10px 10px; }
+.ts-side {
+	flex: 0 0 40%; min-width: 260px;
+	border-left: 1px solid var(--ts-rule);
+	padding: 10px 14px; overflow: auto;
+}
+.ts-side.is-hidden { display: none; }
+.ts-side-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.ts-side-title { font-size: 12px; font-weight: 600; color: var(--ts-soft); }
+.ts-side-head .ts-icon-btn { margin-left: auto; }
+.ts-side-body { font-size: 13px; }
+
+.ts-day-h1 {
+	font-family: var(--display-font, var(--font-interface));
+	font-size: 20px; font-weight: 700; margin: 6px 0 10px;
+}
+.ts-allday-label {
+	font-size: 11px; color: var(--ts-soft); letter-spacing: .04em;
+	text-transform: uppercase; padding: 4px 8px;
+	background: var(--ts-wash); border-radius: 6px 6px 0 0;
+	border: 1px solid var(--ts-rule); border-bottom: 0;
+}
+.ts-allday { border: 1px solid var(--ts-rule); border-radius: 0 0 6px 6px; overflow: hidden; }
+.ts-allday-row {
+	display: flex; align-items: center; gap: 9px;
+	padding: 7px 10px; border-bottom: 1px solid var(--ts-rule);
+	border-left: 3px solid var(--ts-accent);
+}
+.ts-allday-row:last-child { border-bottom: 0; }
+.ts-allday-row:hover { background: var(--ts-wash); }
+.ts-allday-row.is-clickable { cursor: pointer; }
+.ts-allday-row.is-done { border-left-color: var(--ts-done); }
+.ts-allday-row.is-done .ts-name { text-decoration: line-through; color: var(--ts-faint); }
+.ts-allday-row.is-late { border-left-color: var(--ts-late); }
+.ts-allday-row .ts-name { flex: 1 1 auto; }
+.ts-day-none { padding: 12px; color: var(--ts-faint); font-size: 12.5px; }
+
+/* The hour grid is mostly empty for tasks that carry dates and no times, and
+   that is the honest picture. It earns its place for the now line, which is
+   the one thing a day view says that a list does not. */
+.ts-hours { position: relative; margin-top: 14px; }
+.ts-hour { display: flex; height: 44px; }
+.ts-hour-label {
+	flex: 0 0 52px; font-size: 10.5px; color: var(--ts-faint);
+	transform: translateY(-6px); font-variant-numeric: tabular-nums;
+}
+.ts-hour-slot { flex: 1 1 auto; border-top: 1px solid var(--ts-rule); }
+.ts-now {
+	position: absolute; left: 46px; right: 0; height: 0;
+	border-top: 2px solid var(--ts-accent); pointer-events: none;
+}
+.ts-now-dot {
+	position: absolute; left: -4px; top: -4px;
+	width: 8px; height: 8px; border-radius: 50%; background: var(--ts-accent);
+}
+
+/* Hovering an empty hour offers to fill it. The clock face is the affordance;
+   what gets written is the day, because a task in this format carries a date
+   and no time — so the dialog shows the date, not the hour. */
+.ts-hour-slot { position: relative; cursor: pointer; }
+.ts-slot-hint {
+	position: absolute; inset: 1px 0 0 0;
+	display: none; align-items: center; justify-content: center;
+	border: 1px dashed var(--ts-accent); border-radius: 6px;
+	background: color-mix(in srgb, var(--ts-accent) 8%, transparent);
+}
+.ts-hour-slot:hover .ts-slot-hint { display: flex; }
+.ts-slot-time {
+	position: absolute; left: 6px; top: 3px;
+	font-size: 10px; color: var(--ts-accent); font-variant-numeric: tabular-nums;
+}
+.ts-slot-plus { color: var(--ts-accent); font-size: 15px; line-height: 1; }
+
+/* The daily note: read it, click it, write it. A pane is a click away for
+   anything longer; this is for the line you think of while looking at the day. */
+.ts-side-name { font-size: 11.5px; color: var(--ts-faint); font-variant-numeric: tabular-nums; }
+.ts-side-body { min-height: 120px; cursor: text; }
+.ts-side-body:hover { background: var(--ts-wash); border-radius: 6px; }
+.ts-side-edit {
+	width: 100%; min-height: 240px; resize: vertical;
+	font-family: var(--font-text, inherit); font-size: 13px; line-height: 1.5;
+	background: var(--ts-paper); color: var(--ts-ink);
+	border: 1px solid var(--ts-accent); border-radius: 6px; padding: 8px 10px;
+}
+.is-hidden { display: none !important; }
+
+/* The divider. Four pixels wide to hit, one pixel wide to look at: the rule
+   is the border, the rest is target. */
+.ts-handle {
+	flex: 0 0 5px;
+	cursor: col-resize;
+	position: relative;
+	background: transparent;
+}
+.ts-handle::after {
+	content: "";
+	position: absolute; top: 0; bottom: 0; left: 2px;
+	width: 1px; background: var(--ts-rule);
+}
+.ts-handle:hover::after,
+.ts-handle.is-dragging::after { background: var(--ts-accent); width: 2px; }
+.ts-handle.is-hidden { display: none; }
+.ts-side { border-left: 0; }
+
+/* ══ the create dialog ═══════════════════════════════════════════════════
+ * Icons, never emoji. They read at any size, take the theme's colour, and do
+ * not change shape between Windows and a Mac. The emoji still go on the line,
+ * because that is the Tasks format — they just never appear in the interface.
+ */
+.ts-modal { max-width: 560px; }
+.ts-field-label {
+	display: flex; align-items: center; gap: 6px;
+	font-size: 12px; font-weight: 600; color: var(--ts-ink);
+	margin: 14px 0 5px;
+}
+.ts-field-icon { display: flex; color: var(--ts-soft); }
+.ts-field-icon svg { width: 14px; height: 14px; }
+.ts-field-hint { margin-left: auto; font-size: 11px; font-weight: 400; color: var(--ts-faint); }
+
+.ts-modal-text {
+	width: 100%; min-height: 64px; resize: vertical;
+	font-family: inherit; font-size: 13px; padding: 8px 10px;
+	border: 1px solid var(--ts-rule); border-radius: 7px;
+	background: var(--ts-paper); color: var(--ts-ink);
+}
+.ts-modal-text:focus { border-color: var(--ts-accent); outline: none; }
+.ts-modal-input { width: 100%; font-size: 13px; }
+
+.ts-prio { display: grid; grid-template-columns: repeat(6, 1fr); gap: 5px; }
+.ts-prio-btn {
+	display: flex; flex-direction: column; align-items: center; gap: 3px;
+	padding: 7px 4px; border: 1px solid var(--ts-rule); border-radius: 8px;
+	font-size: 11px; color: var(--ts-soft); cursor: pointer; text-align: center;
+}
+.ts-prio-btn:hover { border-color: var(--ts-accent); color: var(--ts-ink); }
+.ts-prio-btn.is-on {
+	border-color: var(--ts-accent); color: var(--ts-accent);
+	background: color-mix(in srgb, var(--ts-accent) 12%, transparent);
+	font-weight: 600;
+}
+.ts-prio-icon { display: flex; }
+.ts-prio-icon svg { width: 15px; height: 15px; }
+
+.ts-dates { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.ts-date-field { display: flex; flex-direction: column; gap: 3px; }
+.ts-date-label {
+	display: flex; align-items: center; gap: 5px;
+	font-size: 11px; color: var(--ts-soft);
+}
+.ts-date-icon { display: flex; }
+.ts-date-icon svg { width: 13px; height: 13px; }
+.ts-date-row { display: flex; align-items: center; gap: 2px; }
+.ts-date-row input {
+	flex: 1 1 auto; min-width: 0; font-size: 12px;
+	border: 1px solid var(--ts-rule); border-radius: 6px; padding: 4px 6px;
+	background: var(--ts-paper); color: var(--ts-ink);
+}
+.ts-date-clear {
+	display: flex; align-items: center; justify-content: center;
+	width: 22px; height: 22px; border-radius: 5px;
+	color: var(--ts-faint); cursor: pointer; flex: none;
+}
+.ts-date-clear:hover { background: var(--ts-wash); color: var(--ts-late); }
+.ts-date-clear svg { width: 13px; height: 13px; }
+
+.ts-modal-foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
+
+/* ══ week ════════════════════════════════════════════════════════════════
+ * A gutter and seven equal columns, repeated for the header, the all-day band
+ * and every hour. One grid definition, so the columns cannot drift apart.
+ */
+.ts-week { border: 1px solid var(--ts-rule); border-radius: 10px; overflow: hidden; background: var(--ts-paper); }
+.ts-week-head,
+.ts-week-allday,
+.ts-week-hour { display: grid; grid-template-columns: 56px repeat(7, 1fr); }
+.ts-week-gutter {
+	font-size: 10.5px; color: var(--ts-faint); padding: 4px 6px;
+	text-align: right; font-variant-numeric: tabular-nums;
+	border-right: 1px solid var(--ts-rule);
+}
+
+.ts-week-head { border-bottom: 1px solid var(--ts-rule); background: var(--ts-panel); }
+.ts-week-day {
+	display: flex; align-items: baseline; justify-content: center; gap: 7px;
+	padding: 8px 4px; border-left: 1px solid var(--ts-rule);
+}
+.ts-week-dow { font-size: 12px; font-weight: 600; color: var(--ts-ink); }
+.ts-week-num { font-size: 13px; color: var(--ts-soft); font-variant-numeric: tabular-nums; }
+.ts-week-day.is-today .ts-week-dow,
+.ts-week-day.is-today .ts-week-num { color: var(--ts-late); font-weight: 700; }
+
+/* The band is where the work actually is, so it gets lanes: a task spanning
+   Monday to Wednesday is one bar three columns wide, not three bars. */
+.ts-week-allday { border-bottom: 1px solid var(--ts-rule); align-items: start; }
+.ts-week-allday > .ts-week-gutter { align-self: center; }
+.ts-week-lanes { grid-column: 2 / -1; padding: 3px 0; }
+.ts-week-lane { position: relative; display: grid; grid-template-columns: repeat(7, 1fr); height: 26px; }
+.ts-week-slot { border-left: 1px solid var(--ts-rule); }
+.ts-week-bar {
+	position: absolute; top: 2px; height: 22px;
+	display: flex; align-items: center; gap: 6px;
+	padding: 0 7px; border-radius: 5px;
+	background: color-mix(in srgb, var(--ts-accent) 18%, transparent);
+	border-left: 3px solid var(--ts-accent);
+	font-size: 11.5px; overflow: hidden; cursor: pointer;
+}
+.ts-week-bar:hover { background: color-mix(in srgb, var(--ts-accent) 28%, transparent); }
+.ts-week-bar.is-done { background: color-mix(in srgb, var(--ts-done) 16%, transparent); border-left-color: var(--ts-done); }
+.ts-week-bar.is-done .ts-week-name { text-decoration: line-through; color: var(--ts-faint); }
+.ts-week-bar.is-cancelled { border-left-color: var(--ts-cancel); }
+.ts-week-bar.is-late { background: color-mix(in srgb, var(--ts-late) 16%, transparent); border-left-color: var(--ts-late); }
+.ts-week-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* An arrow where the bar runs past the week, so a cut-off bar does not read
+   as a task that happens to end on Sunday. */
+.ts-week-bar.runs-on { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+.ts-week-bar.runs-on::after {
+	content: "\203A"; position: absolute; right: 3px; color: var(--ts-soft); font-size: 13px;
+}
+.ts-week-bar.runs-from { border-left-width: 0; border-top-left-radius: 0; border-bottom-left-radius: 0; }
+
+.ts-week-more {
+	margin: 2px 2px 0; padding: 3px 8px;
+	border: 1px dashed var(--ts-rule); border-radius: 5px;
+	font-size: 11px; color: var(--ts-soft); cursor: pointer;
+}
+.ts-week-more:hover { border-color: var(--ts-accent); color: var(--ts-accent); }
+
+.ts-week-hours { position: relative; max-height: 56vh; overflow-y: auto; }
+.ts-week-hour { height: 36px; }
+.ts-week-hour > .ts-week-gutter { transform: translateY(-6px); border-right: 1px solid var(--ts-rule); }
+.ts-week-cell { border-left: 1px solid var(--ts-rule); border-top: 1px solid var(--ts-rule); position: relative; cursor: pointer; }
+.ts-week-cell.is-today { background: color-mix(in srgb, var(--ts-late) 5%, transparent); }
+.ts-week-hours .ts-now { left: 56px; }
+
+/* Expanded, the control is a full-width footer to the band rather than a chip:
+   it is now closing something large, and a small target for a large action
+   reads as an afterthought. */
+.ts-week-more.is-open {
+	margin-top: 4px;
+	text-align: left;
+	background: var(--ts-wash);
+}
+/* The arrow sits at the bar's own right edge, so it reads as "this continues"
+   rather than as a column marker. */
+.ts-week-bar.runs-on::after {
+	content: "\203A";
+	position: absolute;
+	right: 4px;
+	top: 50%;
+	transform: translateY(-50%);
+	color: var(--ts-soft);
+	font-size: 14px;
+	line-height: 1;
+}
+.ts-week-bar.runs-from::before {
+	content: "\2039";
+	position: absolute;
+	left: 3px;
+	top: 50%;
+	transform: translateY(-50%);
+	color: var(--ts-soft);
+	font-size: 14px;
+	line-height: 1;
+}
+.ts-week-bar.runs-from { padding-left: 15px; }
+.ts-week-bar.runs-on { padding-right: 15px; }
+
+/* ══ compact, and the lines made whole ═══════════════════════════════════
+ * The hour rule belongs to the row, not to the slot inside it: on the slot it
+ * started after the time label and read as a dash rather than a line.
+ * Heights match HOUR_DAY and HOUR_WEEK in draw.ts.
+ */
+.ts-hour { height: 32px; border-top: 1px solid var(--ts-rule); }
+.ts-hour:first-child { border-top: 0; }
+.ts-hour-slot { border-top: 0; }
+.ts-hour-label { flex-basis: 46px; transform: translateY(-7px); }
+.ts-hours .ts-now { left: 40px; }
+
+.ts-week-hour { height: 28px; }
+.ts-week-cell { border-top: 1px solid var(--ts-rule); }
+
+/* The dotted target is drawn once and shown by whichever grid is hovering it.
+   It only had a rule for the day view, so in the week it was invisible —
+   and still clickable, which is the worst of both. */
+.ts-week-cell:hover .ts-slot-hint,
+.ts-hour-slot:hover .ts-slot-hint { display: flex; }
+.ts-week-cell .ts-slot-hint { inset: 1px 1px 0 1px; border-radius: 4px; }
+.ts-week-cell .ts-slot-time { font-size: 9px; left: 4px; top: 1px; }
+.ts-week-cell .ts-slot-plus { font-size: 13px; }
+
+/* A little less air everywhere: the same plan, a screen shorter. */
+.task-span { --ts-row: 34px; --ts-bar: 21px; }
+.ts-list-row { padding: 6px 10px; }
+.ts-allday-row { padding: 5px 9px; }
+.ts-row.is-band { height: 24px; }
+.ts-day { min-height: 68px; }
+.ts-day-h1 { font-size: 18px; margin: 4px 0 8px; }
+.ts-week-lane { height: 23px; }
+.ts-week-bar { height: 19px; font-size: 11px; }
+.ts-week-day { padding: 6px 4px; }
+
+/* ══ the hover card ══════════════════════════════════════════════════════
+ * A card rather than a title attribute: the browser's tooltip takes a second
+ * to appear, cannot be styled and truncates. Scanning a month means hovering
+ * a dozen bars, and a second each is a dead minute.
+ */
+.task-span { position: relative; }
+.ts-card {
+	position: absolute; z-index: 20; min-width: 190px; max-width: 320px;
+	background: var(--ts-paper); border: 1px solid var(--ts-rule);
+	border-radius: 9px; box-shadow: 0 8px 28px rgb(0 0 0 / .18);
+	padding: 9px 11px; pointer-events: none; font-size: 12px;
+}
+.ts-card-title { font-weight: 600; color: var(--ts-ink); margin-bottom: 6px; }
+.ts-card-rows { background: var(--ts-wash); border-radius: 6px; padding: 5px 7px; }
+.ts-card-row { display: flex; gap: 10px; }
+.ts-card-key { flex: 0 0 44px; color: var(--ts-faint); }
+.ts-card-val { color: var(--ts-ink); font-variant-numeric: tabular-nums; }
+.ts-card-where {
+	margin-top: 6px; padding: 4px 7px; border-radius: 6px;
+	background: var(--ts-wash); color: var(--ts-soft); font-size: 11px;
+}
+
+/* ══ the sidebar ═════════════════════════════════════════════════════════
+ * Read while doing something else, so it answers two questions and no others:
+ * what is outstanding, and what is today. Cards rather than a table, because
+ * at 300px a row of columns is a row of ellipses.
+ */
+.ts-sidebar { height: 100%; display: flex; flex-direction: column; padding: 0; }
+.ts-side-tabs {
+	display: flex; gap: 2px; padding: 6px 8px;
+	border-bottom: 1px solid var(--ts-rule);
+}
+.ts-side-tab {
+	display: flex; align-items: center; gap: 5px;
+	padding: 4px 9px; border-radius: 7px; cursor: pointer;
+	font-size: 12px; color: var(--ts-soft); white-space: nowrap;
+}
+.ts-side-tab:hover { color: var(--ts-ink); }
+.ts-side-tab.is-on {
+	background: color-mix(in srgb, var(--ts-accent) 14%, var(--ts-paper));
+	color: var(--ts-accent); font-weight: 600;
+}
+.ts-side-main { flex: 1 1 auto; overflow: auto; padding: 8px; }
+
+.ts-search {
+	width: 100%; font-size: 12.5px; padding: 5px 9px;
+	border: 1px solid var(--ts-rule); border-radius: 7px;
+	background: var(--ts-paper); color: var(--ts-ink);
+}
+.ts-search:focus { border-color: var(--ts-accent); outline: none; }
+.ts-side-tools { display: flex; gap: 2px; padding: 5px 0; }
+.ts-icon-btn.is-on { color: var(--ts-accent); background: var(--ts-wash); }
+
+.ts-side-list { display: flex; flex-direction: column; gap: 5px; }
+.ts-side-card {
+	display: flex; align-items: flex-start; gap: 8px;
+	padding: 7px 9px; cursor: pointer;
+	border: 1px solid var(--ts-rule); border-radius: 8px;
+	border-left: 3px solid var(--ts-accent);
+	background: var(--ts-paper);
+}
+.ts-side-card:hover { background: var(--ts-wash); }
+.ts-side-card.is-done { border-left-color: var(--ts-done); }
+.ts-side-card.is-done .ts-name { text-decoration: line-through; color: var(--ts-faint); }
+.ts-side-card.is-cancelled { border-left-color: var(--ts-cancel); }
+.ts-side-card.is-late { border-left-color: var(--ts-late); }
+.ts-side-card .ts-box { margin-top: 2px; cursor: pointer; }
+.ts-side-card .ts-box:hover { border-color: var(--ts-accent); }
+.ts-side-card-text { flex: 1 1 auto; min-width: 0; }
+.ts-side-card .ts-name { white-space: normal; font-size: 12.5px; line-height: 1.35; }
+.ts-side-when { font-size: 10.5px; color: var(--ts-faint); margin-top: 2px; }
+.ts-side-when.is-late { color: var(--ts-late); font-weight: 600; }
+
+.ts-side-date {
+	display: flex; align-items: center; gap: 8px;
+	padding: 2px 0 8px;
+}
+.ts-side-date-text { font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.ts-side-date .ts-nav { margin-left: auto; }
+/* In a sidebar the day view drops its heading: the date is already above it. */
+.ts-sidebar .ts-day-h1 { display: none; }
+
+/* ══ month ═══════════════════════════════════════════════════════════════
+ * The cell borders and tints are a backdrop; the numbers and lanes sit in
+ * normal flow above them. Drawn the other way round, the row had to have a
+ * fixed height and the lanes spilled into the following week.
+ */
+.ts-month { border: 1px solid var(--ts-rule); border-radius: 10px; overflow: hidden; background: var(--ts-paper); }
+.ts-m-head { display: grid; grid-template-columns: 44px repeat(7, 1fr); background: var(--ts-panel); border-bottom: 1px solid var(--ts-rule); }
+.ts-m-dow {
+	padding: 6px; text-align: center;
+	font-size: 10.5px; font-weight: 700; letter-spacing: .05em;
+	text-transform: uppercase; color: var(--ts-soft);
+	border-left: 1px solid var(--ts-rule);
+}
+.ts-m-gutter {
+	display: flex; align-items: center; justify-content: center;
+	font-size: 10px; color: var(--ts-faint); font-variant-numeric: tabular-nums;
+	border-right: 1px solid var(--ts-rule);
+}
+
+.ts-m-row { display: grid; grid-template-columns: 44px 1fr; border-top: 1px solid var(--ts-rule); }
+.ts-m-body { position: relative; min-height: 86px; padding-bottom: 4px; }
+.ts-m-bg { position: absolute; inset: 0; display: grid; grid-template-columns: repeat(7, 1fr); }
+.ts-m-cell { border-left: 1px solid var(--ts-rule); }
+.ts-m-cell.is-other { background: var(--ts-wash); }
+.ts-m-cell.is-today { background: color-mix(in srgb, var(--ts-late) 6%, transparent); }
+
+.ts-m-nums { position: relative; display: grid; grid-template-columns: repeat(7, 1fr); }
+.ts-m-numcell { padding: 3px 5px; }
+.ts-m-num {
+	display: inline-block; min-width: 20px; padding: 1px 4px; border-radius: 5px;
+	font-size: 11.5px; color: var(--ts-soft); font-variant-numeric: tabular-nums;
+}
+.ts-m-numcell.is-other .ts-m-num { color: var(--ts-faint); }
+.ts-m-numcell.is-today .ts-m-num { color: var(--ts-late); font-weight: 700; }
+.ts-m-num.is-clickable { cursor: pointer; }
+.ts-m-num.is-clickable:hover { background: var(--ts-accent); color: var(--ts-on-accent); }
+
+.ts-m-lanes { position: relative; }
+.ts-m-lane { position: relative; height: 22px; }
+.ts-m-bar {
+	position: absolute; top: 1px; height: 20px;
+	display: flex; align-items: center; gap: 5px; padding: 0 6px;
+	border-radius: 4px; font-size: 11px; cursor: pointer; overflow: hidden;
+	background: color-mix(in srgb, var(--ts-accent) 16%, transparent);
+	border-left: 3px solid var(--ts-accent);
+}
+.ts-m-bar:hover { background: color-mix(in srgb, var(--ts-accent) 28%, transparent); }
+.ts-m-bar.is-done { background: color-mix(in srgb, var(--ts-done) 14%, transparent); border-left-color: var(--ts-done); }
+.ts-m-bar.is-done .ts-m-name { text-decoration: line-through; color: var(--ts-faint); }
+.ts-m-bar.is-cancelled { border-left-color: var(--ts-cancel); }
+.ts-m-bar.is-late { background: color-mix(in srgb, var(--ts-late) 14%, transparent); border-left-color: var(--ts-late); }
+.ts-m-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ts-m-bar.runs-on { border-top-right-radius: 0; border-bottom-right-radius: 0; padding-right: 13px; }
+.ts-m-bar.runs-on::after { content: "\203A"; position: absolute; right: 3px; color: var(--ts-soft); }
+.ts-m-bar.runs-from { border-left-width: 0; border-top-left-radius: 0; border-bottom-left-radius: 0; padding-left: 13px; }
+.ts-m-bar.runs-from::before { content: "\2039"; position: absolute; left: 3px; color: var(--ts-soft); }
+.ts-m-bar .ts-box { width: 11px; height: 11px; flex: none; }
+
+/* Three lanes, then a count. A week with twelve overlapping tasks would
+   otherwise be a screen of its own, and the month stops being a month. */
+.ts-m-more {
+	margin: 1px 4px 0; padding: 1px 6px; display: inline-block;
+	border-radius: 4px; background: var(--ts-wash);
+	font-size: 10.5px; color: var(--ts-soft); cursor: pointer;
+}
+.ts-m-more:hover { color: var(--ts-accent); }
+
+/* ══ year ════════════════════════════════════════════════════════════════
+ * Twelve month cards, three across. A dot for every task that *starts* that
+ * day — starts, not spans: a six-week task would otherwise shade six weeks,
+ * and a year of shading says nothing.
+ */
+.ts-year { padding: 4px 2px; }
+.ts-months {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+	gap: 12px;
+}
+.ts-mbox {
+	border: 1px solid var(--ts-rule);
+	border-radius: 10px;
+	padding: 10px 11px 12px;
+	background: var(--ts-paper);
+}
+.ts-mname {
+	font-family: var(--display-font, var(--font-interface));
+	font-size: 13px;
+	font-weight: 600;
+	text-align: center;
+	margin-bottom: 8px;
+	color: var(--ts-ink);
+}
+.ts-ygrid {
+	display: grid;
+	grid-template-columns: repeat(7, 1fr);
+	gap: 3px;
+}
+.ts-ydow {
+	text-align: center;
+	font-size: 9.5px;
+	color: var(--ts-faint);
+	padding-bottom: 3px;
+	font-weight: 600;
+}
+.ts-yday {
+	position: relative;
+	aspect-ratio: 1;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 1px;
+	border-radius: 6px;
+	cursor: pointer;
+	font-size: 11px;
+	color: var(--ts-soft);
+	font-variant-numeric: tabular-nums;
+	line-height: 1;
+}
+.ts-yday:hover { background: var(--ts-wash); }
+.ts-yday.is-blank { visibility: hidden; cursor: default; }
+.ts-yday.has-tasks {
+	background: color-mix(in srgb, var(--ts-accent) 14%, transparent);
+	color: var(--ts-ink);
+	font-weight: 600;
+}
+.ts-yday.has-tasks:hover { background: color-mix(in srgb, var(--ts-accent) 26%, transparent); }
+.ts-yday.is-today { box-shadow: inset 0 0 0 1.5px var(--ts-late); color: var(--ts-late); font-weight: 700; }
+.ts-ynum { line-height: 1; }
+
+/* Four dots and a count: five dots in a cell this size is a smudge. */
+.ts-ydots { display: flex; align-items: center; gap: 1.5px; height: 5px; }
+.ts-ydot { width: 4px; height: 4px; border-radius: 50%; background: var(--ts-accent); flex: none; }
+.ts-ydot.is-done { background: var(--ts-done); }
+.ts-ydot.is-cancelled { background: var(--ts-cancel); }
+.ts-ydot.is-late { background: var(--ts-late); }
+.ts-ydot.is-doing { background: var(--ts-paper); box-shadow: inset 0 0 0 1.5px var(--ts-accent); }
+.ts-ymore { font-size: 7.5px; color: var(--ts-faint); line-height: 1; margin-left: 1px; }
+
+/* A week's day header steps into that day, as the month's numbers do. */
+.ts-week-day.is-clickable { cursor: pointer; }
+.ts-week-day.is-clickable:hover { background: var(--ts-wash); }
+
+/* ══ gantt: grips, checkbox, row hover ═══════════════════════════════════
+ * The cursor says the ends are grabbable only once you have found them. A
+ * mark says it before you look.
+ */
+.ts-grip {
+	position: absolute; top: 3px; bottom: 3px; width: 5px;
+	border-radius: 2px; background: var(--ts-paper);
+	opacity: 0; transition: opacity .1s ease; pointer-events: none;
+}
+.ts-grip.is-start { left: 2px; }
+.ts-grip.is-end { right: 2px; }
+.ts-bar:hover .ts-grip { opacity: .8; }
+.ts-bar.is-dragging .ts-grip { opacity: 1; }
+.ts-bar.is-moment .ts-grip { display: none; }
+
+.ts-cell-name .ts-box { flex: none; cursor: pointer; }
+.ts-cell-name .ts-box:hover { border-color: var(--ts-accent); }
+.ts-row.is-done .ts-cell-name .ts-box { background: var(--ts-done); border-color: var(--ts-done); }
+.ts-row.is-done .ts-name { text-decoration: line-through; color: var(--ts-faint); }
+
+/* The row highlight has to cross the name column and the track, which scroll
+   independently — so it is painted on the row, not on either half. */
+.ts-row:hover { background: color-mix(in srgb, var(--ts-accent) 7%, transparent); }
+.ts-row:hover .ts-cell-name { background: color-mix(in srgb, var(--ts-accent) 5%, transparent); }
+
+/* ══ hierarchy ═══════════════════════════════════════════════════════════
+ * A group is its own block so it can be folded. Flat siblings would mean
+ * hunting for "the rows after this band and before the next", which breaks
+ * the moment a group is empty.
+ */
+.ts-group.is-shut > .ts-row:not(.is-band),
+.ts-group.is-shut > .ts-list-row { display: none; }
+
+.ts-twist {
+	flex: none; width: 12px; text-align: center;
+	font-size: 9px; color: var(--ts-faint); user-select: none;
+}
+.ts-band-name { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ts-band-count {
+	flex: none; min-width: 18px; text-align: center;
+	padding: 0 5px; border-radius: 999px;
+	background: var(--ts-wash); color: var(--ts-soft);
+	font-size: 10px; font-weight: 600; font-variant-numeric: tabular-nums;
+}
+.ts-row.is-band { cursor: pointer; }
+.ts-row.is-band:hover { background: var(--ts-wash); }
+
+.ts-list-band {
+	display: flex; align-items: center; gap: 7px;
+	padding: 6px 10px; background: var(--ts-panel); cursor: pointer;
+	font-size: 11px; font-weight: 700; letter-spacing: .05em;
+	text-transform: uppercase; color: var(--ts-soft);
+	border-bottom: 1px solid var(--ts-rule);
+}
+.ts-list-band:hover { color: var(--ts-ink); }
+/* Indented, so the tree reads as a tree and not as a list with headings. */
+.ts-list-row.is-child { padding-left: 24px; }
+.ts-group.is-shut .ts-list-band { border-bottom: 0; }
+
+/* ══ year: the week gutter, and a card you can reach ═════════════════════ */
+.ts-ygrid { grid-template-columns: 16px repeat(7, 1fr); }
+.ts-yweekhead { }
+.ts-yweek {
+	display: flex; align-items: center; justify-content: center;
+	font-size: 8.5px; color: var(--ts-faint); cursor: pointer;
+	border-radius: 4px;
+}
+.ts-yweek:hover { background: var(--ts-wash); color: var(--ts-accent); }
+.ts-mname.is-clickable { cursor: pointer; border-radius: 5px; }
+.ts-mname.is-clickable:hover { color: var(--ts-accent); background: var(--ts-wash); }
+
+/* The hover card is reachable: it stays open while the pointer is inside it,
+   or the boxes in it could never be clicked. */
+.ts-card.is-live { pointer-events: auto; }
+.ts-card-list { display: flex; flex-direction: column; gap: 3px; max-height: 240px; overflow: auto; }
+.ts-card-task {
+	display: flex; align-items: flex-start; gap: 7px;
+	padding: 4px 6px; border-radius: 6px;
+	border-left: 3px solid var(--ts-accent);
+	background: var(--ts-wash);
+}
+.ts-card-task:hover { background: color-mix(in srgb, var(--ts-accent) 12%, transparent); }
+.ts-card-task.is-done { border-left-color: var(--ts-done); }
+.ts-card-task.is-done .ts-name { text-decoration: line-through; color: var(--ts-faint); }
+.ts-card-task.is-cancelled { border-left-color: var(--ts-cancel); }
+.ts-card-task .ts-box { margin-top: 1px; cursor: pointer; flex: none; }
+.ts-card-task .ts-box:hover { border-color: var(--ts-accent); }
+.ts-card-task.is-done .ts-box { background: var(--ts-done); border-color: var(--ts-done); }
+.ts-card-task .ts-name {
+	white-space: normal; font-size: 11.5px; line-height: 1.3; cursor: pointer;
+}
+
+/* ══ tasks ═══════════════════════════════════════════════════════════════
+ * A list is read down its left edge, so the left edge carries only the name.
+ * Priority, tags, dates and the source sit right and quiet — checked once
+ * something has been found, not scanned.
+ */
+.ts-list { border: 0; background: transparent; display: flex; flex-direction: column; gap: 4px; }
+.ts-group { display: flex; flex-direction: column; gap: 4px; }
+
+.ts-list-band {
+	display: flex; align-items: center; gap: 8px;
+	padding: 5px 10px; margin-top: 6px;
+	background: transparent; border: 0; border-bottom: 1px solid var(--ts-rule);
+	border-radius: 0; cursor: pointer;
+	font-size: 11px; font-weight: 700; letter-spacing: .06em;
+	text-transform: uppercase; color: var(--ts-soft);
+}
+.ts-list-band:hover { color: var(--ts-accent); border-bottom-color: var(--ts-accent); }
+.ts-group:first-child .ts-list-band { margin-top: 0; }
+
+.ts-list-row {
+	display: flex; align-items: center; gap: 10px;
+	padding: 8px 12px; cursor: pointer;
+	border: 1px solid var(--ts-rule); border-radius: 9px;
+	border-left: 3px solid var(--ts-accent);
+	background: var(--ts-paper);
+}
+.ts-list-row.is-child { margin-left: 14px; }
+.ts-list-row:hover { border-color: var(--ts-accent); background: var(--ts-wash); }
+.ts-list-row .ts-num { color: var(--ts-faint); font-size: 11px; width: 22px; }
+.ts-list-row .ts-name { flex: 1 1 auto; font-size: 13px; }
+
+.ts-list-right { display: flex; align-items: center; gap: 10px; flex: none; }
+
+.ts-prio-mark { display: flex; color: var(--ts-soft); }
+.ts-prio-mark svg { width: 15px; height: 15px; }
+.ts-prio-mark.is-highest { color: var(--ts-late); }
+.ts-prio-mark.is-high { color: var(--ts-cancel); }
+.ts-prio-mark.is-medium { color: var(--ts-accent); }
+.ts-prio-mark.is-low,
+.ts-prio-mark.is-lowest { color: var(--ts-faint); }
+
+/* Two tags and a count: a row of eight chips is a row nobody reads. */
+.ts-tags { display: flex; gap: 3px; }
+.ts-tag {
+	padding: 1px 7px; border-radius: 999px;
+	background: color-mix(in srgb, var(--ts-accent) 12%, transparent);
+	color: var(--ts-accent); font-size: 10.5px; white-space: nowrap;
+}
+.ts-tag.is-more { background: var(--ts-wash); color: var(--ts-faint); }
+
+.ts-when { display: flex; gap: 5px; }
+.ts-chip {
+	display: flex; align-items: center; gap: 4px;
+	padding: 2px 7px; border-radius: 6px; background: var(--ts-wash);
+	color: var(--ts-soft); font-size: 11px; white-space: nowrap;
+	font-variant-numeric: tabular-nums;
+}
+.ts-chip svg { width: 11px; height: 11px; opacity: .7; }
+.ts-chip.is-late {
+	background: color-mix(in srgb, var(--ts-late) 14%, transparent);
+	color: var(--ts-late); font-weight: 600;
+}
+.ts-chip.is-late svg { opacity: 1; }
+
+.ts-src { color: var(--ts-faint); font-size: 10.5px; max-width: 170px;
+	overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.ts-list-row.is-done { border-left-color: var(--ts-done); opacity: .72; }
+.ts-list-row.is-done .ts-box { background: var(--ts-done); border-color: var(--ts-done); }
+.ts-list-row.is-cancelled { border-left-color: var(--ts-cancel); opacity: .6; }
+.ts-list-row.is-late { border-left-color: var(--ts-late); }
+.ts-list-row .ts-box { cursor: pointer; }
+.ts-list-row .ts-box:hover { border-color: var(--ts-accent); }
+
+/* Density comes from settings, written once onto the document as custom
+   properties, so the stylesheet stays declarative and nothing has to be
+   threaded through six layouts. */
+.task-span {
+	--ts-row: var(--ts-row-set, 34px);
+	--ts-bar: calc(var(--ts-row) - 13px);
+}
+
+/* ══ legend, tooltips, scope ═════════════════════════════════════════════
+ * The left edge of every row is a colour, and a colour nobody can decode is
+ * decoration. One quiet line is cheaper than making people guess.
+ */
+.ts-legend {
+	display: flex; flex-wrap: wrap; gap: 12px;
+	padding: 8px 4px 2px; margin-top: 4px;
+	border-top: 1px solid var(--ts-rule);
+}
+.ts-legend-item { display: flex; align-items: center; gap: 5px; }
+.ts-legend-dot { width: 3px; height: 12px; border-radius: 2px; background: var(--ts-accent); }
+.ts-legend-dot.is-doing { background: var(--ts-accent); box-shadow: 0 0 0 1px var(--ts-accent); }
+.ts-legend-dot.is-late { background: var(--ts-late); }
+.ts-legend-dot.is-done { background: var(--ts-done); }
+.ts-legend-dot.is-cancelled { background: var(--ts-cancel); }
+.ts-legend-text { font-size: 10.5px; color: var(--ts-faint); }
+
+/* Struck through only when asked: a finished task is already ticked and
+   dimmed, and a struck-through long name is hard to read. */
+.ts-list-row.is-done .ts-name { text-decoration: none; }
+.ts-list.is-strike .ts-list-row.is-done .ts-name { text-decoration: line-through; }
+
+.ts-scope-list {
+	max-height: 320px; overflow: auto; margin: 8px 0;
+	border: 1px solid var(--ts-rule); border-radius: 8px;
+}
+.ts-scope-row {
+	display: flex; align-items: center; gap: 9px;
+	padding: 5px 10px; cursor: pointer; font-size: 12.5px;
+}
+.ts-scope-row:hover { background: var(--ts-wash); }
+.ts-scope-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ts-box.is-on { background: var(--ts-accent); border-color: var(--ts-accent); }
+
+/* The hour rule belongs to the slot, not the row: on the row it ran under the
+   time label and struck through it. */
+.ts-hour { border-top: 0; }
+.ts-hour-slot { border-top: 1px solid var(--ts-rule); }
+.ts-hour:first-child .ts-hour-slot { border-top: 0; }
+.ts-hour-label {
+	flex: 0 0 46px;
+	padding-right: 8px;
+	text-align: right;
+	transform: translateY(-6px);
+	background: var(--ts-paper);
+	position: relative;
+	z-index: 1;
+}
+
+/* The card names the day it is showing, so a card beside a small cell is
+   still unambiguous. */
+.ts-card-title { font-variant-numeric: tabular-nums; }
+
+/* ══ the settings page ═══════════════════════════════════════════════════
+ * A contents page rather than forty controls in a column: a settings page
+ * people scroll is one where the thing they came for is three screens down.
+ */
+.ts-set-row { cursor: pointer; }
+.ts-set-row:hover { background: var(--background-modifier-hover); border-radius: 8px; }
+.ts-set-icon { display: inline-flex; margin-right: 8px; vertical-align: -3px; opacity: .7; }
+.ts-set-icon svg { width: 16px; height: 16px; }
+.ts-set-back {
+	display: flex; align-items: center; gap: 4px;
+	margin: 2px 0 14px; cursor: pointer; width: fit-content;
+	color: var(--text-muted);
+}
+.ts-set-back:hover { color: var(--text-normal); }
+.ts-set-back-text { font-size: 15px; font-weight: 600; }
+
+/* ══ finished tasks ══════════════════════════════════════════════════════
+ * Dimmed everywhere, struck through only when asked — and then in every view,
+ * not just the list. A rule that holds in four places and not the other two is
+ * a rule nobody can remember.
+ */
+.ts-list-row.is-done .ts-name,
+.ts-allday-row.is-done .ts-name,
+.ts-week-bar.is-done .ts-week-name,
+.ts-m-bar.is-done .ts-m-name,
+.ts-row.is-done .ts-name,
+.ts-side-card.is-done .ts-name,
+.ts-card-task.is-done .ts-name { text-decoration: none; }
+
+.task-span.is-strike .ts-list-row.is-done .ts-name,
+.task-span.is-strike .ts-allday-row.is-done .ts-name,
+.task-span.is-strike .ts-week-bar.is-done .ts-week-name,
+.task-span.is-strike .ts-m-bar.is-done .ts-m-name,
+.task-span.is-strike .ts-row.is-done .ts-name,
+.task-span.is-strike .ts-side-card.is-done .ts-name,
+.task-span.is-strike .ts-card-task.is-done .ts-name { text-decoration: line-through; }
+
+/* Cancelled is struck wherever it appears: it is not "finished", it is
+   "abandoned", and the two should not look the same. */
+.ts-list-row.is-cancelled .ts-name,
+.ts-allday-row.is-cancelled .ts-name,
+.ts-week-bar.is-cancelled .ts-week-name,
+.ts-m-bar.is-cancelled .ts-m-name,
+.ts-row.is-cancelled .ts-name,
+.ts-side-card.is-cancelled .ts-name {
+	text-decoration: line-through;
+	text-decoration-style: dotted;
+	color: var(--ts-faint);
+}
+
+/* The strike class is set on whatever element paint() was handed — which is
+   `.task-span` in a code block but `.ts-view-body` in a pane. Keying off the
+   class alone works in both; keying off `.task-span.is-strike` worked only in
+   the block, which is the half nobody was looking at. */
+.is-strike .ts-list-row.is-done .ts-name,
+.is-strike .ts-allday-row.is-done .ts-name,
+.is-strike .ts-week-bar.is-done .ts-week-name,
+.is-strike .ts-m-bar.is-done .ts-m-name,
+.is-strike .ts-row.is-done .ts-name,
+.is-strike .ts-side-card.is-done .ts-name,
+.is-strike .ts-card-task.is-done .ts-name {
+	text-decoration: line-through;
+	color: var(--ts-faint);
+}
+
+/* Done is dimmed in every view whether or not it is struck, so the state is
+   legible with the setting off. */
+.ts-row.is-done .ts-cell-name,
+.ts-allday-row.is-done,
+.ts-week-bar.is-done,
+.ts-m-bar.is-done { opacity: .75; }
+
+/* ══ the gantt header ════════════════════════════════════════════════════
+ * No rule per day in the header. At day scale it is a picket fence behind the
+ * dates; at week or month scale it is a rule every few pixels with nothing to
+ * separate. The week boundary and today are the only divisions worth drawing
+ * up there — the body keeps its grid, where bars need something to sit against.
+ */
+.ts-head-track .ts-col { border-left: 0; }
+.ts-head-track .ts-col.is-week {
+	border-left: 1px solid var(--ts-rule);
+	border-left-style: solid;
+}
+.ts-head-track .ts-col.is-today {
+	border-left: 1px solid var(--ts-late);
+	background: color-mix(in srgb, var(--ts-late) 10%, transparent);
+}
+
+/* ══ gantt, tidied ═══════════════════════════════════════════════════════ */
+.task-span { --ts-name-w: 260px; }
+
+.ts-head-name {
+	display: flex; align-items: center; gap: 0; padding: 0;
+	font-size: 11px; font-weight: 700; letter-spacing: .07em;
+	text-transform: uppercase; color: var(--ts-soft);
+}
+.ts-head-num {
+	flex: 0 0 42px; text-align: center;
+	border-right: 1px solid var(--ts-rule);
+	line-height: 34px;
+}
+.ts-head-task { flex: 1 1 auto; text-align: center; line-height: 34px; }
+.ts-head { height: 34px; }
+
+.ts-cell-name { gap: 0; padding: 0 12px 0 0; }
+.ts-cell-name .ts-num {
+	flex: 0 0 42px; width: 42px; text-align: center;
+	border-right: 1px solid var(--ts-rule);
+	align-self: stretch; line-height: var(--ts-row);
+}
+.ts-cell-name .ts-box { margin-left: 10px; }
+.ts-cell-name .ts-name { margin-left: 9px; }
+.ts-row.is-band .ts-cell-name { padding-left: 12px; }
+
+/* Today, the full height of the chart. One line behind the rows would sit
+   behind only the first: the rows scroll as one but each has its own rail. */
+.ts-rail-today {
+	position: absolute; top: 0; bottom: 0;
+	background: color-mix(in srgb, var(--ts-late) 9%, transparent);
+	border-left: 2px solid color-mix(in srgb, var(--ts-late) 55%, transparent);
+	pointer-events: none;
+}
+
+/* Bars: a little taller, rounder, and lighter so the label reads on them. */
+.ts-bar {
+	border-radius: 7px;
+	background: color-mix(in srgb, var(--ts-accent) 34%, transparent);
+	border-left: 3px solid var(--ts-accent);
+	box-shadow: inset -3px 0 0 color-mix(in srgb, var(--ts-accent) 70%, transparent);
+}
+.ts-bar.is-done { box-shadow: inset -3px 0 0 color-mix(in srgb, var(--ts-done) 70%, transparent); }
+.ts-bar.is-late { box-shadow: inset -3px 0 0 color-mix(in srgb, var(--ts-late) 70%, transparent); }
+
+/* The grips are always faintly there, and firm up on hover: an affordance you
+   can only find by hovering is one most people never find. */
+.ts-grip { opacity: .45; }
+.ts-bar:hover .ts-grip { opacity: .95; }
+.ts-grip.is-start { left: 3px; }
+.ts-grip.is-end { right: 3px; }
+
+.ts-row { border-bottom: 1px solid color-mix(in srgb, var(--ts-rule) 70%, transparent); }
+.ts-cell-name { border-right: 1px solid var(--ts-rule); }
+
+/* Shown only in the Tasks view: the calendars already answer "when" by being
+   a calendar, so a date window there would be a second, contradictory one. */
+.ts-listonly { display: flex; gap: 2px; }
+.ts-listonly.is-hidden { display: none; }
+
+/* The name column is drag-resizable: a fixed width is a guess about names
+   nobody has written yet, and the wrong guess truncates every one of them. */
+.ts-head-name { position: relative; }
+.ts-name-grab {
+	position: absolute; top: 0; bottom: 0; right: -3px; width: 7px;
+	cursor: col-resize; z-index: 3;
+}
+.ts-name-grab::after {
+	content: ""; position: absolute; top: 6px; bottom: 6px; left: 3px;
+	width: 1px; background: var(--ts-rule);
+}
+.ts-name-grab:hover::after { background: var(--ts-accent); width: 2px; }
+
+/* A folder covered by an ancestor is ticked and faint: unticking it would do
+   nothing, and a control that does nothing is worse than one that is absent. */
+.ts-scope-row.is-inherited { opacity: .55; cursor: default; }
+.ts-scope-row.is-inherited:hover { background: transparent; }
+.ts-box.is-inherited { background: var(--ts-faint); border-color: var(--ts-faint); }
+.ts-scope-via {
+	margin-left: auto; font-size: 10px; color: var(--ts-faint);
+	text-transform: uppercase; letter-spacing: .05em;
+}
+.ts-scope-row { user-select: none; }
+
+/* ══ day, inside a block ═════════════════════════════════════════════════
+ * In the pane the split is done by the view; in a code block the day layout
+ * is on its own and needs its own frame, or it renders as a bare column.
+ */
+.ts-day-view { display: flex; gap: 14px; }
+.ts-day-main { flex: 1 1 auto; min-width: 0; }
+.ts-chip-text { font-variant-numeric: tabular-nums; }
+
+
+/* A one-line hint under a dialog's field: present, and quiet about it. */
+.ts-note {
+	font-size: 12px;
+	color: var(--ts-muted, var(--text-muted));
+	margin: -4px 0 10px;
+	line-height: 1.5;
+}
+
+
+/* ══ two bands of tabs ═════════════════════════════════════════════════════
+   Day/Week/Month/Year ask "what is happening then"; Tasks/Gantt ask "what is
+   there and whose is it". Only the second pair can be grouped, so they are
+   drawn as two pills with real space between them rather than one row of six
+   where a control applies to the last two and nothing says so. */
+
+.ts-tabstrip {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	flex-wrap: wrap;
+}
+
+/* A hairline between the pills, so the gap reads as a division rather than
+   as loose spacing. It is a divider, not a border on either group. */
+.ts-tabstrip > .ts-tabs.is-work {
+	position: relative;
+	margin-left: 4px;
+}
+
+.ts-tabstrip > .ts-tabs.is-work::before {
+	content: "";
+	position: absolute;
+	left: -8px;
+	top: 20%;
+	bottom: 20%;
+	width: 1px;
+	background: var(--ts-grid, var(--background-modifier-border));
+}
+
+/* ══ the active grouping, in words ═════════════════════════════════════════
+   A lit icon says "something is on". With two levels the order is the whole
+   point, so it is spelled out: `product › folder`, outermost first. */
+
+.ts-group-chip {
+	display: inline-flex;
+	align-items: center;
+	height: 24px;
+	padding: 0 8px;
+	margin-left: -2px;
+	border-radius: 6px;
+	background: var(--ts-wash, var(--background-secondary));
+	color: var(--ts-ink, var(--text-normal));
+	font-size: 11.5px;
+	font-weight: 600;
+	white-space: nowrap;
+	max-width: 180px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	cursor: pointer;
+}
+
+.ts-group-chip:hover { background: var(--ts-hover, var(--background-modifier-hover)); }
+
+@media (max-width: 900px) { .ts-group-chip { display: none; } }
+
+.ts-group-chip.is-hidden { display: none; }
+
+/* The chip is a sentence about the state, so "by" is quieter than what
+   follows it — the grouping is the fact, the preposition is the grammar. */
+.ts-group-chip { gap: 5px; cursor: default; }
+.ts-group-chip-by {
+	color: var(--ts-muted, var(--text-muted));
+	font-weight: 500;
+	font-size: 10.5px;
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+}
+
+
+/* ══ the footer carries the grouping ═══════════════════════════════════════
+   Grouping on the left, counts on the right, in the line that was already
+   there. A context row of its own would have been clearer and cost a row of
+   height on every view; this costs none. */
+
+.ts-foot {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	flex-wrap: wrap;
+	min-height: 22px;
+}
+
+.ts-foot-group {
+	display: flex;
+	align-items: center;
+	gap: 5px;
+	flex-wrap: wrap;
+	min-width: 0;
+}
+
+/* The counts hold the right edge whether or not anything is grouped, so the
+   footer does not jump sideways when a level is dropped. */
+.ts-foot-counts { margin-left: auto; }
+
+.ts-foot-label {
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+	font-size: 10px;
+	font-weight: 600;
+	color: var(--ts-faint);
+}
+
+.ts-foot-arrow { color: var(--ts-faint); font-size: 11px; }
+
+.ts-pill {
+	display: inline-flex;
+	align-items: center;
+	gap: 3px;
+	height: 19px;
+	padding: 0 4px 0 7px;
+	border-radius: 5px;
+	background: var(--ts-wash);
+	color: var(--ts-soft);
+	font-size: 11px;
+	font-weight: 600;
+	white-space: nowrap;
+}
+
+/* A property is a different kind of key from a folder — it comes from the
+   note's frontmatter, not the tree — so it is marked rather than explained. */
+.ts-pill.is-prop { box-shadow: inset 2px 0 0 var(--ts-accent); padding-left: 8px; }
+
+/* A block has no × : its grouping is written in the block, and clicking it
+   away would last until the next render. Then the pill needs no gutter. */
+.ts-pill:not(:has(.ts-pill-x)) { padding-right: 7px; }
+
+.ts-pill-x {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 13px;
+	height: 13px;
+	border-radius: 3px;
+	color: var(--ts-faint);
+	cursor: pointer;
+}
+.ts-pill-x:hover { background: var(--ts-hover); color: var(--ts-ink); }
+.ts-pill-x svg { width: 9px; height: 9px; }
+
+
+/* ══ done ══════════════════════════════════════════════════════════════════
+   One rule for every view: Day, Week, Month, Year, Tasks, Gantt, the hover
+   card and the sidebar. `.is-done` sits on the row or the bar in all of them,
+   so the mark is written once against that rather than once per view — which
+   is how the bars in Day, Week and Month came to have no mark at all.
+
+   The box is not filled. A green square and a tick say the same thing twice,
+   and when the tick is the quieter of the two the square wins and you cannot
+   tell a finished task from a coloured one. The tick alone is unambiguous, so
+   the tick alone is what is drawn — on the ordinary ground, in the done
+   colour, with the border tinted to match.
+
+   Drawn as a mask rather than two rotated borders: a mask is one shape at any
+   size, needs no arithmetic to stay centred, and cannot be half-overridden by
+   a later `border` shorthand. */
+
+.task-span .is-done .ts-box,
+.task-span .is-cancelled .ts-box,
+.task-span .ts-box.is-on {
+	position: relative;
+	background: transparent;
+	border-color: var(--ts-done);
+}
+
+.task-span .is-cancelled .ts-box { border-color: var(--ts-faint); }
+
+.task-span .is-done .ts-box::after,
+.task-span .is-cancelled .ts-box::after,
+.task-span .ts-box.is-on::after {
+	content: "";
+	position: absolute;
+	inset: 0;
+	background-color: var(--ts-done);
+	-webkit-mask-repeat: no-repeat;
+	mask-repeat: no-repeat;
+	-webkit-mask-position: center;
+	mask-position: center;
+	/* 76%, so the mark sits inside the box rather than touching its corners. */
+	-webkit-mask-size: 76% 76%;
+	mask-size: 76% 76%;
+	pointer-events: none;
+}
+
+.task-span .is-done .ts-box::after,
+.task-span .ts-box.is-on::after {
+	-webkit-mask-image: var(--ts-tick);
+	mask-image: var(--ts-tick);
+}
+
+/* Cancelled is not done. A cross says "this will not happen", which is a
+   different fact and deserves a different mark. */
+.task-span .is-cancelled .ts-box::after {
+	background-color: var(--ts-faint);
+	-webkit-mask-image: var(--ts-cross);
+	mask-image: var(--ts-cross);
+	-webkit-mask-size: 64% 64%;
+	mask-size: 64% 64%;
+}
+
+.task-span .ts-box.is-on {
+	border-color: var(--ts-accent);
+	background: transparent;
+}
+.task-span .ts-box.is-on::after { background-color: var(--ts-accent); }
+
+/* The two marks, as shapes. Stroked rather than filled so they stay crisp
+   when the mask scales them down to an 11px box in the Month view. */
+.task-span {
+	--ts-tick: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E");
+	--ts-cross: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='3.5' stroke-linecap='round'%3E%3Cpath d='M18 6 6 18M6 6l12 12'/%3E%3C/svg%3E");
+}
+
+/* A struck-through name beside a ticked box is the same fact a third time;
+   the tick and the dimming already say it. Left as a setting, off by default. */
+
+
+/* ══ the name column, header and body, as one measurement ══════════════════
+   These two were 281px and 273px: the same `width` but different padding and
+   no `box-sizing`, so the content box of one was the border box of the other.
+   The track begins where this column ends, so the eight pixels of difference
+   offset every date in the header from the bar underneath it — a Gantt whose
+   grid does not line up with its own ruler.
+
+   Both are border-box now and neither carries padding of its own: the number
+   cell and the name own their spacing, so there is one number to get wrong
+   instead of four. */
+
+.task-span .ts-head-name,
+.task-span .ts-cell-name {
+	box-sizing: border-box;
+	padding: 0;
+	gap: 0;
+	flex: 0 0 var(--ts-name-w);
+	width: var(--ts-name-w);
+	min-width: var(--ts-name-w);
+	border-right: 1px solid var(--ts-rule);
+}
+
+/* One width for the serial column, named once. The header cell and the body
+   cell both read it, so they cannot drift apart again. */
+.task-span .ts-gantt { --ts-num-w: 44px; }
+
+.task-span .ts-head-num,
+.task-span .ts-cell-name .ts-num {
+	box-sizing: border-box;
+	flex: 0 0 var(--ts-num-w);
+	width: var(--ts-num-w);
+	min-width: var(--ts-num-w);
+	padding: 0;
+	text-align: center;
+	border-right: 1px solid var(--ts-rule);
+	font-variant-numeric: tabular-nums;
+}
+
+/* TASK sits above the task names rather than centred over the column. A
+   centred heading over left-aligned text points at nothing; above the names
+   it reads as their label. */
+.task-span .ts-head-task {
+	flex: 1 1 auto;
+	text-align: left;
+	padding-left: 12px;
+	line-height: 34px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.task-span .ts-cell-name .ts-name {
+	margin-left: 0;
+	padding-left: 12px;
+	padding-right: 10px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+/* A band spans the whole column, so it starts where the numbers do, not where
+   the names do — otherwise the heading looks indented under its own rows. */
+.task-span .ts-row.is-band .ts-cell-name { padding-left: 12px; }

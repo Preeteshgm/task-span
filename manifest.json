@@ -1,0 +1,10 @@
+{
+	"id": "task-span",
+	"name": "Task Span",
+	"version": "0.7.0",
+	"minAppVersion": "1.6.0",
+	"description": "Draw the tasks you already have as a timeline \u2014 in a note, a canvas card or a presentation.",
+	"author": "Preeteshgm",
+	"authorUrl": "https://github.com/Preeteshgm",
+	"isDesktopOnly": false
+}

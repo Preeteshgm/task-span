@@ -1,0 +1,8 @@
+node_modules/
+
+# Build output. Committed only on a release, as a tagged asset.
+main.js
+
+.DS_Store
+*.log
+data.json
