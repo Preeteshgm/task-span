@@ -2122,3 +2122,53 @@ body.ts-dragging .ts-tray-row:hover { border-color: var(--ts-rule); }
    it to leak through. */
 .task-span .ts-gantt .ts-bar.is-done { opacity: .6; }
 .task-span .ts-gantt .ts-bar.is-cancelled { opacity: .45; }
+
+
+/* ══ the status dot ════════════════════════════════════════════════════════
+   One mark, the same in the Gantt and in Tasks, carrying what transparency
+   used to. Fading a finished row makes it harder to read in order to say
+   something a coloured dot says outright — and a faded row over a sticky
+   column let the chart show through the names.
+
+   The same colours the Year view uses, so a dot means the same thing
+   wherever it appears. */
+
+.task-span .ts-dot {
+	flex: none;
+	width: 7px;
+	height: 7px;
+	border-radius: 50%;
+	margin-left: 10px;
+	background: var(--ts-open, var(--ts-accent));
+}
+.task-span .ts-dot.is-doing    { background: var(--ts-doing, var(--ts-accent)); }
+.task-span .ts-dot.is-done     { background: var(--ts-done); }
+.task-span .ts-dot.is-cancelled{ background: var(--ts-cancel, var(--ts-faint)); }
+.task-span .ts-dot.is-late     { background: var(--ts-late); }
+
+/* Cancelled is hollow: it will not happen, so it is not a filled state. */
+.task-span .ts-dot.is-cancelled {
+	background: none;
+	box-shadow: inset 0 0 0 1.5px var(--ts-cancel, var(--ts-faint));
+}
+
+/* The name follows the dot, so it no longer carries the left padding. */
+.task-span .ts-gantt .ts-cell-name .ts-name { padding-left: 8px; }
+.task-span .ts-list .ts-list-row .ts-name { margin-left: 2px; }
+
+/* Nothing fades any more. The dot is the state, the text is the text. */
+.task-span .ts-gantt .ts-row.is-done,
+.task-span .ts-gantt .ts-row.is-cancelled,
+.task-span .ts-gantt .ts-row.is-done .ts-cell-name,
+.task-span .ts-gantt .ts-row.is-cancelled .ts-cell-name,
+.task-span .ts-list .ts-list-row.is-done,
+.task-span .ts-list .ts-list-row.is-cancelled { opacity: 1; }
+
+.task-span .ts-gantt .ts-row.is-done .ts-name,
+.task-span .ts-gantt .ts-row.is-done .ts-num,
+.task-span .ts-list .ts-list-row.is-done .ts-name { color: var(--ts-soft); }
+
+/* A finished bar keeps its fade: it sits over the chart, where there is
+   nothing behind it to show through. */
+.task-span .ts-gantt .ts-bar.is-done { opacity: .55; }
+.task-span .ts-gantt .ts-bar.is-cancelled { opacity: .4; }

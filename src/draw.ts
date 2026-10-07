@@ -203,6 +203,11 @@ export function gantt(host: HTMLElement, groups: Group[], q: Query): Drawn {
 		// this happen and what overlaps it"; ticking belongs to Tasks and the
 		// calendars, where a row is a thing to do rather than a thing to place.
 		// The bar still carries the status as colour, so nothing is lost.
+		//
+		// A dot instead: the state said as a mark, not as a lack of contrast.
+		// Fading a finished row makes it harder to read in order to say what one
+		// coloured dot says outright.
+		div(name, `ts-dot ${stateOf(task)}`).setAttr("aria-label", task.status);
 		const label = div(name, "ts-name", task.text);
 		// The indent belongs to the label, never to the cell. Indenting the cell
 		// moves the serial number with it, and the number then no longer lines up
@@ -324,6 +329,7 @@ export function list(host: HTMLElement, groups: Group[], q: Query): Drawn {
 			box.setAttr("data-toggle", "1");
 			bars.push({ task, node: box });
 		}
+		div(row, `ts-dot ${stateOf(task)}`).setAttr("aria-label", task.status);
 		div(row, "ts-name", task.text);
 
 		const right = div(row, "ts-list-right");
