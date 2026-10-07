@@ -1883,3 +1883,31 @@ body.ts-dragging .ts-tray-row:hover { border-color: var(--ts-rule); }
 .task-span .ts-gantt .ts-row.is-band.is-depth-1,
 .task-span .ts-gantt .ts-row.is-band.is-depth-2 { height: 22px; }
 .task-span .ts-gantt .ts-row.is-band .ts-band-count { font-size: 10px; }
+
+
+/* ══ one row, all the way across ═══════════════════════════════════════════
+   The separator under a row was one weight beside the name and another in the
+   chart, so the eye lost the row at the divider — on a wide gantt that is the
+   difference between reading a bar off its name and guessing. */
+
+.task-span .ts-gantt .ts-row,
+.task-span .ts-gantt .ts-row .ts-cell-name,
+.task-span .ts-gantt .ts-row .ts-cell-track {
+	border-bottom-color: var(--ts-rule);
+}
+.task-span .ts-gantt .ts-row { border-bottom: 1px solid var(--ts-rule); }
+.task-span .ts-gantt .ts-row .ts-cell-name { border-bottom: 0; }
+
+/* The header date, at the size the column now affords. */
+.task-span .ts-gantt .ts-head-track .ts-col { font-size: 10.5px; padding-top: 10px; }
+
+/* Day lines lighter still, now that there are fewer of them on screen. */
+.task-span .ts-gantt .ts-cell-track .ts-scroll {
+	background-image:
+		repeating-linear-gradient(to right,
+			color-mix(in srgb, var(--ts-rule) 80%, transparent) 0 1px,
+			transparent 1px var(--ts-week-w)),
+		repeating-linear-gradient(to right,
+			color-mix(in srgb, var(--ts-rule) 22%, transparent) 0 1px,
+			transparent 1px var(--ts-col-w));
+}

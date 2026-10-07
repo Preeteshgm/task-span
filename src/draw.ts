@@ -115,7 +115,10 @@ export function gantt(host: HTMLElement, groups: Group[], q: Query): Drawn {
 	const bars: Drawn["bars"] = [];
 	const { from, to } = windowFor(tasks, q);
 	const days = Math.max(1, Math.round((to - from) / DAY));
-	const colW = q.scale === "day" ? 34 : q.scale === "week" ? 15 : 7;
+	// 42 at day scale, so a column can hold "10/3". A bare day number is two
+	// characters that do not say which month, and a reader then has to look
+	// somewhere else to place the bar they are already looking at.
+	const colW = q.scale === "day" ? 42 : q.scale === "week" ? 15 : 7;
 	const trackW = days * colW;
 
 	const root = div(host, "ts-gantt");
@@ -161,7 +164,9 @@ export function gantt(host: HTMLElement, groups: Group[], q: Query): Drawn {
 		const cell = div(scroller, `ts-col${isWeekStart ? " is-week" : ""}${at === today() ? " is-today" : ""}`);
 		cell.style.left = `${i * colW}px`;
 		cell.style.width = `${colW}px`;
-		if (q.scale === "day") cell.textContent = String(d.getDate());
+		if (q.scale === "day") {
+			cell.textContent = `${d.getMonth() + 1}/${d.getDate()}`;
+		}
 		else if (q.scale === "week" && isWeekStart) cell.textContent = `${d.getDate()}/${d.getMonth() + 1}`;
 		else if (q.scale === "month" && d.getDate() === 1) cell.textContent = MONTH[d.getMonth()];
 	}
