@@ -141,6 +141,20 @@ npm run build   # type-check, then bundle
 `src/draw.ts` imports nothing from Obsidian — the six layouts are pure DOM, so
 the same drawing runs in a pane, a code block and a test.
 
+## Prior art
+
+**[Gantt Calendar](https://github.com/Leo310/obsidian-gantt-calendar)** and
+**Smart Gantt** came first, and both are good. Task Span's six views sit in the
+order Gantt Calendar established, and its settings are grouped much the same
+way, because those conventions are worth keeping rather than reinventing a
+worse version of.
+
+No code is taken from either. The two things this one does differently are the
+reason it exists: the chart renders anywhere markdown renders, and every colour
+is a CSS variable, so it takes your theme rather than bringing its own.
+
+If a pane is all you need, use Gantt Calendar.
+
 ## Licence
 
 MIT — see [LICENSE](LICENSE).
